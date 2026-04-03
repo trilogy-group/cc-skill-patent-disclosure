@@ -10,6 +10,5 @@
   "license": "MIT",
   "keywords": ["patent", "disclosure", "invention", "ip", "intellectual-property"],
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
-  "postInstall": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh"
+  "hooks": "./hooks/hooks.json"
 }
