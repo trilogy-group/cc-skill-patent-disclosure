@@ -23,7 +23,7 @@ Provide 2-3 case studies. For each:
    - What is the starting state?
 
 2. **Walkthrough** — Step through the invention's operation in this scenario:
-   - Show actual data values at each step (realistic but anonymized)
+   - Show data values at each step. If real data is available from the code (test fixtures, examples, defaults), use it. If not, create illustrative values and clearly mark them: *"(Illustrative values for demonstration)"*
    - Reference specific functions/modules from the code
    - Highlight where the novel aspects come into play
 

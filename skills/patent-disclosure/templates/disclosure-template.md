@@ -18,8 +18,7 @@
 
 | # | Name | Citizenship | Contribution |
 |---|------|-------------|-------------|
-| 1 | {inventor_1_name} | {inventor_1_citizenship} | {inventor_1_contribution} |
-| 2 | {inventor_2_name} | {inventor_2_citizenship} | {inventor_2_contribution} |
+{inventor_rows}
 
 ---
 
@@ -30,12 +29,6 @@
 | Disclosed outside company? | {disclosed_yn} | {disclosed_details} |
 | Sold or offered for sale? | {sold_yn} | {sold_details} |
 | Intention to disclose/sell in future? | {future_yn} | {future_details} |
-
----
-
-## Prior Art
-
-{prior_art}
 
 ---
 
@@ -65,33 +58,12 @@
 
 {what_and_how}
 
-#### 6.1 System Architecture
-
-```mermaid
-{architecture_diagram}
-```
-
-#### 6.2 Processing Pipeline
-
-```mermaid
-{pipeline_flowchart}
-```
-
-#### 6.3 Sequence Diagram — Core Operation
-
-```mermaid
-{sequence_diagram}
-```
+<!-- Note: Diagrams (architecture, pipeline flowchart, sequence) are embedded
+     within the section content above. Do not duplicate them here. -->
 
 ### 7. Case Studies
 
 {case_studies}
-
-#### Case Study Flow
-
-```mermaid
-{case_study_diagram}
-```
 
 ### 8. Pseudocode
 
@@ -101,31 +73,33 @@
 
 {data_structures}
 
-#### Entity Relationship Diagram
-
-```mermaid
-{er_diagram}
-```
-
-#### Data Flow Diagram
-
-```mermaid
-{data_flow_diagram}
-```
+<!-- Note: ER diagram and data flow diagram are embedded in section content above. -->
 
 ### 10. Implementation Details
 
 {implementation}
 
-#### Component Interaction Diagram
-
-```mermaid
-{component_diagram}
-```
-
 ### 11. Alternatives & Comparison
 
 {alternatives}
+
+### 12. Prior Art
+
+{prior_art}
+
+---
+
+## Draft Patent Claims
+
+{claims}
+
+---
+
+## Claim-to-Code Mapping
+
+| Claim | Element | Implementation | File | Lines |
+|-------|---------|---------------|------|-------|
+{claim_mapping_rows}
 
 ---
 
@@ -142,12 +116,20 @@
 
 ## Self-Assessment (Patent Committee Rubric)
 
-| Dimension | Score | Justification |
-|-----------|-------|---------------|
-| Technical Merit | {tm_score}/4 | {tm_justification} |
-| Alternatives with Comparative Capabilities | {alt_score}/4 | {alt_justification} |
-| Value to Company | {val_score}/4 | {val_justification} |
-| Infringement Detection | {id_score}/3 | {id_justification} |
+Scores use the patent committee scale: **1 = strongest**, higher = weaker.
+
+| Dimension | Score | Rating | Justification |
+|-----------|-------|--------|---------------|
+| Technical Merit | {tm_score} | {tm_rating} | {tm_justification} |
+| Alternatives | {alt_score} | {alt_rating} | {alt_justification} |
+| Value to Company | {val_score} | {val_rating} | {val_justification} |
+| Infringement Detection | {id_score} | {id_rating} | {id_justification} |
+
+**Score key:**
+- Technical Merit: 1=Significant improvement, 2=Moderate, 3=Incremental, 4=Negligible
+- Alternatives: 1=No known alternatives, 2=Very few, 3=Several exist, 4=Many viable
+- Value to Company: 1=Key strategic, 2=Moderately strategic, 3=Licensing potential, 4=Defensive only
+- Infringement Detection: 1=Easy to detect in products, 2=Needs documentation analysis, 3=Needs source code access
 
 ### Recommendation
 

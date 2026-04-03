@@ -1,23 +1,52 @@
 # Diagram Generation Guidelines
 
-Every patent disclosure MUST include comprehensive diagrams. Visual representations are critical for patent attorneys and examiners — they often understand the invention faster from a diagram than from text.
+Patent disclosures should include diagrams in sections where visual representation aids understanding. Diagrams are critical for patent attorneys and examiners. However, only include diagrams where they add value — do not force diagrams into narrative sections.
 
-## Required Diagrams
+## Which Sections Need Diagrams
 
-Every disclosure must include AT MINIMUM these diagrams. Generate them as Mermaid blocks within the markdown.
+| Section | Required Diagrams | Notes |
+|---------|------------------|-------|
+| What It Does & How It Works | System architecture, processing pipeline flowchart, sequence diagram | Always required |
+| Data Structures | ER diagram | Required if custom data structures exist |
+| Implementation Details | Component interaction diagram | Required |
+| Case Studies | Walkthrough diagram | Recommended, not required |
+| All other sections | None | Only if it genuinely helps understanding |
 
-### 1. System Architecture Diagram (Required)
+## Patent-Style Reference Numerals
 
-Show the high-level components and their relationships. Use a `graph` diagram.
+Patent figures use numbered reference numerals to identify elements. Use these in diagrams where practical:
+
+- Use 100-series for system components (Processor 102, Memory 104, Network Interface 106)
+- Use 200-series for data elements (Input Data 202, Intermediate Result 204, Output 206)
+- Use 300-series for method steps (Step 302: Receive Input, Step 304: Validate, Step 306: Process)
+
+Example in a flowchart:
+```mermaid
+flowchart TD
+    A["Step 302: Receive Input Data"] --> B["Step 304: Validate Format"]
+    B --> C{"Step 306: Check Threshold"}
+    C -->|"exceeds"| D["Step 308: Apply Adaptive Algorithm"]
+    C -->|"within bounds"| E["Step 310: Standard Processing"]
+    D --> F["Step 312: Generate Output"]
+    E --> F
+
+    style D fill:#ff9,stroke:#333,stroke-width:2px
+```
+
+## Diagram Types and Syntax
+
+### 1. System Architecture Diagram
+
+Show high-level components and relationships.
 
 ```mermaid
 graph TB
     subgraph "System Boundary"
-        A[Component A] -->|data flow| B[Component B]
-        B --> C[Component C]
+        A["Component A 102"] -->|"data flow"| B["Component B 104"]
+        B --> C["Component C 106"]
     end
-    D[External System] -->|API| A
-    C -->|Output| E[Consumer]
+    D["External System 108"] -->|"API call"| A
+    C -->|"Output"| E["Consumer 110"]
 ```
 
 **Rules:**
@@ -25,70 +54,68 @@ graph TB
 - Label every arrow with what flows along it (data type, protocol, event)
 - Use subgraphs to group related components
 - Distinguish external systems from internal components
-- Show data stores (databases, caches, queues) as distinct shapes
+- Show data stores (databases, caches, queues) with cylinder notation `[("DB")]` or distinct labels
 
-### 2. Processing Pipeline Flowchart (Required)
+### 2. Processing Pipeline Flowchart
 
-Show the step-by-step processing from input to output. Use a `flowchart` diagram.
+Show step-by-step processing from input to output.
 
 ```mermaid
 flowchart TD
-    Start([Input Received]) --> A[Step 1: Validate Input]
-    A --> B{Decision Point}
-    B -->|Condition A| C[Step 2a: Process Path A]
-    B -->|Condition B| D[Step 2b: Process Path B]
-    C --> E[Step 3: Core Algorithm]
+    Start(["Input Received"]) --> A["Step 302: Validate Input"]
+    A --> B{"Step 304: Decision Point"}
+    B -->|"Condition A"| C["Step 306a: Process Path A"]
+    B -->|"Condition B"| D["Step 306b: Process Path B"]
+    C --> E["Step 308: Core Algorithm"]
     D --> E
-    E --> F[Step 4: Post-processing]
-    F --> G([Output])
+    E --> F["Step 310: Post-processing"]
+    F --> G(["Output"])
+    E -.->|"on error"| H["Step 312: Error Handler"]
 
-    style E fill:#f9f,stroke:#333,stroke-width:2px
-    note1[This is the novel step] --- E
+    style E fill:#ff9,stroke:#333,stroke-width:2px
 ```
 
 **Rules:**
 - Include EVERY processing step, not just the important ones
-- Use decision diamonds for branching logic
-- Highlight novel steps with distinct styling (colored fill)
-- Show error/fallback paths as dashed lines
-- Use round-edge boxes for start/end, rectangles for processes, diamonds for decisions
+- Use decision diamonds `{}` for branching logic
+- Highlight novel steps with `style NodeName fill:#ff9,stroke:#333,stroke-width:2px`
+- Show error/fallback paths as dashed lines `-.->` 
+- Use round-edge boxes `([])` for start/end, rectangles `[]` for processes, diamonds `{}` for decisions
+- Always quote labels that contain special characters: `["Step: Process"]`
 
-### 3. Sequence Diagram — Core Operation (Required)
+### 3. Sequence Diagram
 
-Show the interaction between components over time for the main use case.
+Show component interactions over time.
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant API as API Gateway
-    participant Svc as Core Service
-    participant DB as Database
-    participant ML as ML Model
+    participant API as API Gateway 102
+    participant Svc as Core Service 104
+    participant DB as Database 106
 
     User->>API: Request
     API->>Svc: Forward request
+    activate Svc
     Svc->>DB: Query data
     DB-->>Svc: Results
-    Svc->>ML: Inference request
-    ML-->>Svc: Prediction
-    Svc->>DB: Store result
+    Note over Svc: Novel processing step
     Svc-->>API: Response
+    deactivate Svc
     API-->>User: Result
-
-    Note over Svc,ML: Novel processing happens here
 ```
 
 **Rules:**
 - Show the complete request lifecycle for the primary use case
 - Include ALL participants (actors, services, stores, external systems)
-- Use solid arrows for requests, dashed for responses
-- Add `Note` blocks to highlight where novel processing occurs
-- Show async operations with `activate/deactivate` blocks
-- Include error/retry flows if they're part of the invention
+- Use solid arrows `->>` for requests, dashed `-->>` for responses
+- Use `Note over` blocks to highlight where novel processing occurs
+- Use `activate/deactivate` blocks for long-running operations
+- Do NOT use `style` directives in sequence diagrams (not supported)
 
-### 4. Entity Relationship Diagram (Required if data structures are significant)
+### 4. Entity Relationship Diagram
 
-Show data structure relationships.
+Show data structure relationships. Only in Data Structures section.
 
 ```mermaid
 erDiagram
@@ -107,37 +134,37 @@ erDiagram
     }
 ```
 
-### 5. Data Flow Diagram (Required)
+### 5. Data Flow Diagram
 
-Show how data is transformed as it moves through the system.
+Show data transformations through the system.
 
 ```mermaid
 flowchart LR
-    subgraph Input
-        A[Raw Data Source A]
-        B[Raw Data Source B]
+    subgraph "Input 200"
+        A["Raw Data Source A"]
+        B["Raw Data Source B"]
     end
 
-    subgraph "Transform Layer"
-        C[Parse & Validate]
-        D[Enrich & Normalize]
-        E[Core Algorithm]
+    subgraph "Transform Layer 300"
+        C["Parse & Validate"]
+        D["Enrich & Normalize"]
+        E["Core Algorithm"]
     end
 
-    subgraph Output
-        F[Result Store]
-        G[API Response]
+    subgraph "Output 400"
+        F[("Result Store")]
+        G["API Response"]
     end
 
-    A --> C
-    B --> C
-    C -->|"Validated records"| D
-    D -->|"Enriched records"| E
-    E -->|"Scored results"| F
-    E -->|"Summary"| G
+    A -->|"raw records"| C
+    B -->|"raw records"| C
+    C -->|"validated records"| D
+    D -->|"enriched records"| E
+    E -->|"scored results"| F
+    E -->|"summary"| G
 ```
 
-### 6. State Diagram (Required if the invention involves state machines or lifecycle management)
+### 6. State Diagram (only if the invention involves state machines)
 
 ```mermaid
 stateDiagram-v2
@@ -151,19 +178,20 @@ stateDiagram-v2
     Error --> Idle : reset
 ```
 
-## Optional but Recommended Diagrams
-
-- **Class Diagram** — if the invention's OOP design is significant
-- **Gantt Chart** — if the invention involves scheduling or time-based processing
-- **Pie Chart** — for showing distribution of workload or resource allocation
-- **Mindmap** — for showing the taxonomy of concepts within the invention
+Note: `style` directives are NOT supported in state diagrams.
 
 ## Diagram Quality Standards
 
 1. **Every node must be labeled clearly** — no anonymous boxes
 2. **Every edge must describe what flows** — no unlabeled arrows
-3. **Novel elements must be visually distinguished** — use color, bold borders, or annotations
+3. **Novel elements must be visually distinguished** — use `style` in flowcharts, `Note` in sequence diagrams
 4. **Diagrams must be consistent with the text** — component names, data types, and flows must match
-5. **Each diagram must have a descriptive caption** explaining what it shows
+5. **Each diagram must have a descriptive caption** as a markdown heading before the mermaid block
 6. **Keep diagrams readable** — if a diagram has >20 nodes, split it into multiple focused diagrams
 7. **Use consistent naming** across all diagrams in the disclosure
+8. **Always quote labels with special characters** — `["Label: with colon"]` not `[Label: with colon]`
+9. **Styling varies by diagram type:**
+   - Flowcharts: `style NodeName fill:#ff9,stroke:#333,stroke-width:2px`
+   - Sequence diagrams: use `Note over` and `rect` blocks
+   - ER diagrams: no styling available
+   - State diagrams: no styling available

@@ -30,6 +30,13 @@ Describe the context and environment in which this invention exists and operates
    - Resource constraints (memory, compute, network)
    - Regulatory or compliance constraints
 
-5. **Broader Applicability** — Beyond the current use, where else could this invention be applied? (This helps the attorney write broader claims)
+5. **Broader Applicability** — Beyond the current use, where else could this invention be applied? (This helps the attorney write broader claims.)
+
+   Be SPECIFIC. Do not write vague statements like "this could also be applied to healthcare and finance." Instead, describe a concrete scenario in another domain:
+   - What would the inputs look like in that domain?
+   - What problem would it solve there?
+   - What adaptation (if any) would be needed?
+   
+   If there is no obvious broader applicability, say so honestly rather than hand-waving.
 
 **Length:** 300-500 words

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Patent Disclosure Plugin — Post-Install Setup
-# Runs automatically after `claude plugin install patent-disclosure`
+# Patent Disclosure Plugin — Optional Setup
+# Run this to install beads for cross-session workflow tracking.
+# The plugin works without beads (using file-based state), but beads adds
+# richer task management and context survival across conversation compaction.
 
 set -euo pipefail
 
@@ -8,15 +10,27 @@ echo "=== Patent Disclosure Plugin — Setup ==="
 
 # 1. Install beads if not present
 if command -v bd &> /dev/null; then
-    echo "[OK] beads (bd) is already installed"
+    echo "[OK] beads (bd) is already installed: $(bd --version 2>/dev/null || echo 'version unknown')"
 else
-    echo "[INSTALLING] beads — workflow management for cross-session persistence..."
-    curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
-    if command -v bd &> /dev/null; then
-        echo "[OK] beads installed successfully"
+    echo ""
+    echo "beads (bd) is not installed. beads provides cross-session workflow"
+    echo "tracking and survives conversation compaction."
+    echo ""
+    echo "The plugin works fine without it (uses file-based state instead)."
+    echo ""
+    read -p "Install beads now? [y/N] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "[INSTALLING] beads..."
+        curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
+        if command -v bd &> /dev/null; then
+            echo "[OK] beads installed successfully"
+        else
+            echo "[WARN] beads installation may have failed. The plugin will use file-based state."
+            echo "       To install manually: curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash"
+        fi
     else
-        echo "[WARN] beads installation may have failed. You can install manually:"
-        echo "       curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash"
+        echo "[SKIP] beads not installed — plugin will use file-based state tracking"
     fi
 fi
 
@@ -27,6 +41,10 @@ else
     echo "[INFO] pandoc not found — needed to export disclosures to .docx"
     echo "       Install with: brew install pandoc"
 fi
+
+# 3. Create output directory
+mkdir -p patent-disclosures
+echo "[OK] patent-disclosures/ directory ready"
 
 echo ""
 echo "=== Setup Complete ==="

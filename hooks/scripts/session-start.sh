@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Session start hook — load beads context if available
+# Session start hook — check for in-progress patent disclosure work
 # This runs at the start of every Claude Code session
 
-# Only run if beads is installed and initialized in this project
-if command -v bd &> /dev/null && [ -d ".beads" ]; then
-  # Check for in-progress patent disclosure tasks
-  ACTIVE=$(bd list --status in_progress --json 2>/dev/null | grep -c "Patent\|Invention\|Disclosure" || true)
-  if [ "$ACTIVE" -gt 0 ]; then
+# Check file-based state (always works, no external dependencies)
+if [ -f "patent-disclosures/.state.json" ]; then
+  # Check if any inventions are in_progress
+  if grep -q '"in_progress"' patent-disclosures/.state.json 2>/dev/null; then
     echo "Patent disclosure work in progress. Use /patent-disclosure to resume."
-    bd prime 2>/dev/null || true
   fi
+fi
+
+# Also check beads if available
+if command -v bd &> /dev/null && [ -d ".beads" ]; then
+  bd prime 2>/dev/null || true
 fi

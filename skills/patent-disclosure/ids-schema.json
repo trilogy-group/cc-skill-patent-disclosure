@@ -77,16 +77,21 @@
         },
         "beads_task_id": {
           "type": "string",
-          "description": "Beads task ID tracking this invention"
+          "description": "Beads task ID tracking this invention (if beads is available)"
+        },
+        "git_contributors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Top contributors from git blame analysis"
         }
       }
     },
     "sections": {
       "type": "array",
-      "description": "The 11 disclosure sections",
+      "description": "The disclosure sections (typically 12, but sections may be marked not_applicable)",
       "items": {
         "type": "object",
-        "required": ["id", "name", "question", "answer"],
+        "required": ["id", "name", "question"],
         "properties": {
           "id": {
             "type": "string",
@@ -101,7 +106,9 @@
               "pseudocode",
               "data_structures",
               "implementation",
-              "alternatives"
+              "alternatives",
+              "prior_art",
+              "claims"
             ]
           },
           "name": {
@@ -112,9 +119,14 @@
             "type": "string",
             "description": "The core question this section answers"
           },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "draft", "user_approved", "not_applicable"],
+            "description": "Current status of this section"
+          },
           "answer": {
             "type": "string",
-            "description": "The generated content (Markdown formatted)"
+            "description": "The generated content (Markdown formatted). Empty string if pending or not_applicable."
           },
           "diagrams": {
             "type": "array",
@@ -128,7 +140,11 @@
                   "description": "Diagram category"
                 },
                 "caption": { "type": "string", "description": "What the diagram shows" },
-                "mermaid": { "type": "string", "description": "Mermaid diagram source code" }
+                "mermaid": { "type": "string", "description": "Mermaid diagram source code" },
+                "reference_numeral_start": {
+                  "type": "integer",
+                  "description": "Starting reference numeral for this diagram (patent-style, e.g., 100, 200, 300)"
+                }
               }
             }
           },
@@ -155,8 +171,21 @@
           }
         }
       },
-      "minItems": 11,
-      "maxItems": 11
+      "minItems": 1
+    },
+    "claim_to_code_mapping": {
+      "type": "array",
+      "description": "Traceability from claim elements to source code",
+      "items": {
+        "type": "object",
+        "properties": {
+          "claim_number": { "type": "integer" },
+          "element": { "type": "string", "description": "The claim language element" },
+          "implementation": { "type": "string", "description": "Function/class that implements it" },
+          "file": { "type": "string" },
+          "lines": { "type": "string" }
+        }
+      }
     },
     "qc_assessment": {
       "type": "object",
@@ -168,34 +197,36 @@
             "technical_merit": {
               "type": "object",
               "properties": {
-                "score": { "type": "integer", "minimum": 1, "maximum": 4 },
+                "score": { "type": "integer", "minimum": 1, "maximum": 4, "description": "1=significant improvement (best), 4=negligible distinction (weakest)" },
                 "justification": { "type": "string" }
               }
             },
             "alternatives": {
               "type": "object",
               "properties": {
-                "score": { "type": "integer", "minimum": 1, "maximum": 4 },
+                "score": { "type": "integer", "minimum": 1, "maximum": 4, "description": "1=no known alternatives (best), 4=many alternatives (weakest)" },
                 "justification": { "type": "string" }
               }
             },
             "value_to_company": {
               "type": "object",
               "properties": {
-                "score": { "type": "integer", "minimum": 1, "maximum": 4 },
+                "score": { "type": "integer", "minimum": 1, "maximum": 4, "description": "1=key strategic (best), 4=defensive only (weakest)" },
                 "justification": { "type": "string" }
               }
             },
             "infringement_detection": {
               "type": "object",
               "properties": {
-                "score": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "score": { "type": "integer", "minimum": 1, "maximum": 3, "description": "1=easy to detect (best), 3=needs source code (weakest)" },
                 "justification": { "type": "string" }
               }
             }
           }
         },
         "cross_section_consistency": { "type": "string" },
+        "diagram_validation": { "type": "string", "description": "Assessment of diagram quality and Mermaid syntax correctness" },
+        "claims_assessment": { "type": "string", "description": "Assessment of claim quality, scope, and drafting" },
         "prioritized_improvements": {
           "type": "array",
           "items": { "type": "string" }
