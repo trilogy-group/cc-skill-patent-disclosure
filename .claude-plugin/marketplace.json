@@ -10,7 +10,11 @@
       "name": "patent-disclosure",
       "description": "Interactively discover patentable ideas in a codebase and generate high-quality patent disclosure documents. Analyzes code for novel algorithms, architectures, and techniques, then produces attorney-ready invention disclosures with diagrams, pseudocode, and quality scoring.",
       "version": "1.0.0",
-      "source": "."
+      "source": {
+        "source": "github",
+        "repo": "trilogy-group/cc-skill-patent-disclosure"
+      },
+      "homepage": "https://github.com/trilogy-group/cc-skill-patent-disclosure"
     }
   ]
 }
