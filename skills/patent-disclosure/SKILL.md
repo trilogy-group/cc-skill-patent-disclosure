@@ -180,17 +180,23 @@ Read `${CLAUDE_SKILL_DIR}/prompts/codebase-exploration.md` for the full explorat
 
 ### Step 1.3: Present Candidates & Triage
 
-Present the findings as a numbered list. For each candidate:
+Present the findings as a numbered list. Be honest about confidence — most codebases have zero or one high-confidence candidate. For each candidate:
 
 ```
 1. **<Working Title>** (<Confidence>)
-   <Description of what it does and why it might be novel>
+   <Description of what it does>
+   **Non-obvious mechanism:** <the specific technical insight>
+   **Why standard approaches fail:** <what goes wrong without this mechanism>
+   **Skeptic's counterargument:** <the honest weakness>
    Key files: `src/path/to/file.go`, `src/path/to/other.go`
 ```
 
+If zero high-confidence candidates were found, say so directly:
+> *"I analyzed the codebase thoroughly and did not find any clearly patentable innovations. The system is well-engineered but uses standard techniques (weighted scoring, API aggregation, threshold-based classification, etc.). Here are [N] speculative areas that might be worth discussing if you think there's a deeper insight I'm missing."*
+
 Then ask the user:
 
-> *Which of these look promising? Are there ideas I missed? What do you consider the most innovative part of this system?*
+> *Which of these look promising? Are there ideas I missed? What do you consider the most innovative part of this system — specifically, what would surprise another engineer in your field?*
 >
 > *You can also point me to specific files or functions if you know what you want to patent.*
 >
@@ -569,13 +575,14 @@ If all done: *"All selected inventions have been disclosed. You can run `/patent
 
 ## Key Principles
 
-1. **Never assume novelty.** If the code looks like a standard pattern, say so. Only call something novel if it genuinely is.
-2. **The engineer knows best.** If the user says something is or isn't novel, defer to them. Note disagreements but follow the user's lead.
-3. **Attorney-ready output.** Write as if a patent attorney will read this tomorrow with no additional context. Be precise, thorough, and unambiguous.
-4. **Specificity over generality.** Use actual code names, actual data structures, actual algorithms. Never hand-wave.
-5. **Incremental progress.** Save after every phase. The user should never lose work.
-6. **Conversational, not interrogative.** Ask questions in small rounds, wait for answers, build on them naturally.
-7. **Explicit checkpoints.** Never proceed to the next phase/batch without clear user approval.
-8. **Diagrams where they help, not everywhere.** Technical sections need diagrams. Narrative sections usually don't. Never force a diagram just to have one.
-9. **Claims are the deliverable.** The draft claims section is what attorneys care about most. Generate it with care.
-10. **Graceful degradation.** If beads isn't available, file-based state works fine. If a subagent fails, generate the section inline. Never block on a tool failure.
+1. **Extremely high bar for novelty.** Most codebases contain zero patentable ideas. That is normal. Do NOT inflate the candidate list to seem productive. A weighted scoring system is not novel. A multi-step pipeline is not novel. Calling APIs and combining results is not novel. The novelty must be in the MECHANISM — a specific technical approach that a skilled engineer would not arrive at by default. If you cannot articulate why the approach is non-obvious, it is not a candidate.
+2. **Apply the three-part test.** For every candidate ask: (a) Would a skilled engineer facing the same problem likely arrive at this independently? (b) Is there a genuine technical insight about the mechanism, not just the application? (c) Could you defend this against a patent examiner saying "that's obvious"? All three must pass.
+3. **The engineer knows best.** If the user says something is or isn't novel, defer to them. Note disagreements but follow the user's lead. However, if you believe the user is overestimating novelty, say so respectfully — a weak disclosure wastes attorney time and filing fees.
+4. **Attorney-ready output.** Write as if a patent attorney will read this tomorrow with no additional context. Be precise, thorough, and unambiguous.
+5. **Specificity over generality.** Use actual code names, actual data structures, actual algorithms. Never hand-wave.
+6. **Incremental progress.** Save after every phase. The user should never lose work.
+7. **Conversational, not interrogative.** Ask questions in small rounds, wait for answers, build on them naturally.
+8. **Explicit checkpoints.** Never proceed to the next phase/batch without clear user approval.
+9. **Diagrams where they help, not everywhere.** Technical sections need diagrams. Narrative sections usually don't. Never force a diagram just to have one.
+10. **Claims are the deliverable.** The draft claims section is what attorneys care about most. Generate it with care.
+11. **Graceful degradation.** If beads isn't available, file-based state works fine. If a subagent fails, generate the section inline. Never block on a tool failure.
