@@ -38,12 +38,38 @@ This skill supports three modes. Ask the user which they want if unclear:
 
 ## First-Run Setup
 
-Before doing anything else on first invocation, run the setup check:
+Before doing anything else on first invocation, run the dependency checks and auto-install anything missing. Run ALL checks in a single bash call:
 
 ```bash
-# Check if beads is available
+MISSING=""
+
+# 1. Check gogcli (gog) — needed for Google Docs export
+if ! command -v gog &> /dev/null; then
+  echo "[INSTALLING] gogcli — for Google Docs export..."
+  if command -v brew &> /dev/null; then
+    brew install gogcli 2>&1
+  else
+    echo "[WARN] Homebrew not found. Install gogcli manually: https://github.com/tmc/gogcli"
+    MISSING="$MISSING gog"
+  fi
+fi
+
+# 2. Check mermaid-cli (mmdc) — needed for diagram rendering
+if ! command -v mmdc &> /dev/null; then
+  echo "[INSTALLING] mermaid-cli — for rendering diagrams to images..."
+  if command -v npm &> /dev/null; then
+    npm install -g @mermaid-js/mermaid-cli 2>&1
+  elif command -v nvm &> /dev/null; then
+    nvm use default 2>/dev/null
+    npm install -g @mermaid-js/mermaid-cli 2>&1
+  else
+    echo "[WARN] npm not found. Install mermaid-cli manually: npm install -g @mermaid-js/mermaid-cli"
+    MISSING="$MISSING mmdc"
+  fi
+fi
+
+# 3. Check beads (bd) — optional, for cross-session tracking
 if command -v bd &> /dev/null; then
-  # Initialize beads in the project if needed
   if [ ! -d ".beads" ]; then
     bd init --quiet 2>/dev/null
   fi
@@ -51,7 +77,16 @@ if command -v bd &> /dev/null; then
 else
   echo "BEADS_AVAILABLE=false"
 fi
+
+# 4. Report status
+echo ""
+if command -v gog &> /dev/null; then echo "[OK] gogcli"; else echo "[MISSING] gogcli"; fi
+if command -v mmdc &> /dev/null; then echo "[OK] mermaid-cli"; else echo "[MISSING] mermaid-cli"; fi
+if command -v bd &> /dev/null; then echo "[OK] beads"; else echo "[INFO] beads not installed (optional — using file-based state)"; fi
+if command -v pandoc &> /dev/null; then echo "[OK] pandoc"; else echo "[INFO] pandoc not installed (optional — for .docx export)"; fi
 ```
+
+If any installs failed, tell the user what's missing and how to fix it, but **do not block** — proceed with the skill. The only hard requirement is the skill itself; export tools are needed only at Phase 5.
 
 **If beads is available:** Use it for workflow tracking (epics, tasks, notes) as described throughout this document.
 
@@ -70,11 +105,6 @@ fi
     }
   }
 }
-```
-
-Do NOT attempt to install beads automatically. If the user wants beads, they can run:
-```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh
 ```
 
 Confirm to the user: *"Patent disclosure skill ready. Let me know if you want full discovery, targeted analysis of specific code, or a quick triage."*
