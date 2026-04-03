@@ -432,6 +432,32 @@ Read the template from `${CLAUDE_SKILL_DIR}/templates/disclosure-template.md`. U
 
 Save to: `patent-disclosures/<invention-slug>/disclosure.md`
 
+### Step 5.1b: Render Diagrams to Images
+
+After saving the disclosure markdown, render all Mermaid diagrams to PNG images. This is required because Google Docs (and most document formats) cannot render Mermaid code blocks natively.
+
+```bash
+# Create diagrams directory
+mkdir -p patent-disclosures/<invention-slug>/diagrams
+
+# Extract and render each mermaid block using mermaid-cli (mmdc)
+# If mmdc is not available, try installing it:
+#   npm install -g @mermaid-js/mermaid-cli
+```
+
+For each `\`\`\`mermaid` block in the disclosure:
+1. Extract the Mermaid source to a temp `.mmd` file
+2. Render to PNG: `mmdc -i diagram.mmd -o patent-disclosures/<slug>/diagrams/diagram_N.png -w 1200 -b transparent --quiet`
+3. If rendering fails, log a warning but continue (the code block remains as fallback)
+
+Save an export-ready version of the disclosure with image references replacing Mermaid blocks:
+- Replace each `\`\`\`mermaid ... \`\`\`` block with `![Diagram N](diagrams/diagram_N.png)`
+- Save as `patent-disclosures/<invention-slug>/disclosure-export.md`
+
+This gives users two versions:
+- `disclosure.md` — the canonical version with Mermaid source (renders in GitHub, VS Code)
+- `disclosure-export.md` — the export version with PNG images (for Google Docs, Word, PDF)
+
 ### Step 5.2: Generate Claim-to-Code Mapping
 
 Create a traceability appendix that maps each claim element to its implementation:
@@ -452,30 +478,48 @@ Append this to `disclosure.md`.
 
 Save the QC assessment to: `patent-disclosures/<invention-slug>/qc-report.md`
 
-### Step 5.4: Google Doc Instructions
+### Step 5.4: Export to Google Docs
 
-Print instructions for the user:
+**Always use the render-and-export script** to create the Google Doc. This pre-renders Mermaid diagrams to PNG images so they display as actual diagrams in Google Docs (not code blocks).
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md
+```
+
+If the user specifies a Google account or Drive folder:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md \
+  --account you@company.com --folder-id <DRIVE_FOLDER_ID>
+```
+
+**Prerequisites check — run before exporting:**
+```bash
+# Check mmdc (mermaid renderer)
+if ! command -v mmdc &> /dev/null; then
+  echo "Installing mermaid-cli for diagram rendering..."
+  npm install -g @mermaid-js/mermaid-cli
+fi
+
+# Check gog (Google Docs uploader)
+if ! command -v gog &> /dev/null; then
+  echo "gogcli not found. Install with: brew install gogcli && gog auth login"
+fi
+```
+
+If `mmdc` is unavailable and cannot be installed, fall back to `export-to-gdocs.sh` (diagrams will appear as code blocks) and inform the user:
+> *"Diagrams exported as code blocks because mermaid-cli (mmdc) is not available. Install with `npm install -g @mermaid-js/mermaid-cli` and re-export for rendered images."*
+
+After export, print the Google Doc URL and tell the user:
 
 ```
 Your disclosure is saved to:
-  patent-disclosures/<slug>/disclosure.md    (Full disclosure with claims)
-  patent-disclosures/<slug>/ids.json         (Intermediate data structure)
-  patent-disclosures/<slug>/qc-report.md     (Quality assessment)
+  patent-disclosures/<slug>/disclosure.md         (Canonical — Mermaid source)
+  patent-disclosures/<slug>/disclosure-export.md  (Export — rendered PNG images)
+  patent-disclosures/<slug>/diagrams/             (Rendered diagram PNGs)
+  patent-disclosures/<slug>/ids.json              (Intermediate data structure)
+  patent-disclosures/<slug>/qc-report.md          (Quality assessment)
 
-To create a Google Doc directly from markdown (recommended):
-  # Using gogcli (brew install gogcli, then gog auth login)
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md
-
-  # Or with a specific Google Drive folder and account:
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md \
-    --folder-id <DRIVE_FOLDER_ID> --account you@company.com
-
-  # Or directly with gog:
-  gog docs create "Patent Disclosure: <Title>" --file=patent-disclosures/<slug>/disclosure.md
-
-Alternative — convert to .docx first:
-  pandoc patent-disclosures/<slug>/disclosure.md -o patent-disclosures/<slug>/disclosure.docx
-  gog drive upload patent-disclosures/<slug>/disclosure.docx
+Google Doc: <URL from gog output>
 ```
 
 ### Step 5.5: Close Task & Offer Next

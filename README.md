@@ -139,31 +139,38 @@ Self-assessment scores on 4 dimensions (1 = strongest, higher = weaker):
 
 ## Export to Google Docs
 
-The plugin includes a helper script for [gogcli](https://github.com/tmc/gogcli) (`gog`) that creates a Google Doc directly from the disclosure markdown — including inline images and formatting.
+The plugin renders Mermaid diagrams to PNG images and creates a Google Doc with actual diagram images (not code blocks).
 
 ```bash
 # One-time setup
 brew install gogcli
+npm install -g @mermaid-js/mermaid-cli
 gog auth login
 
-# Export disclosure to Google Docs
-bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md
+# Export with rendered diagrams (recommended)
+bash scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md
 
 # With a specific Drive folder and account:
-bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md \
+bash scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md \
   --folder-id <DRIVE_FOLDER_ID> --account you@company.com
+```
 
-# Or use gog directly:
-gog docs create "Patent Disclosure: My Invention" --file=patent-disclosures/<slug>/disclosure.md
+This produces two versions of the disclosure:
+- `disclosure.md` — canonical version with Mermaid source (renders in GitHub, VS Code)
+- `disclosure-export.md` — export version with PNG image references (for Google Docs, Word, PDF)
+- `diagrams/` — rendered PNG files for each diagram
+
+### Alternative: without diagram rendering
+
+If `mmdc` is not available, you can export with diagrams as code blocks:
+```bash
+bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md
 ```
 
 ### Alternative: pandoc + Drive upload
 
 ```bash
-# Convert to docx
 pandoc patent-disclosures/<slug>/disclosure.md -o disclosure.docx
-
-# Upload to Drive
 gog drive upload disclosure.docx
 ```
 
@@ -172,6 +179,7 @@ gog drive upload disclosure.docx
 - [Claude Code](https://claude.ai/code) CLI
 - Git (for repo analysis)
 - [gogcli](https://github.com/tmc/gogcli) (recommended, for Google Docs export): `brew install gogcli`
+- [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (recommended, for diagram rendering): `npm install -g @mermaid-js/mermaid-cli`
 - [pandoc](https://pandoc.org/) (optional, for docx export): `brew install pandoc`
 - [beads](https://github.com/gastownhall/beads) (optional, for richer session tracking)
 
