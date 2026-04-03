@@ -462,12 +462,20 @@ Your disclosure is saved to:
   patent-disclosures/<slug>/ids.json         (Intermediate data structure)
   patent-disclosures/<slug>/qc-report.md     (Quality assessment)
 
-To convert to a Google Doc:
-  # Install pandoc if needed: brew install pandoc
-  pandoc patent-disclosures/<slug>/disclosure.md -o patent-disclosures/<slug>/disclosure.docx
+To create a Google Doc directly from markdown (recommended):
+  # Using gogcli (brew install gogcli, then gog auth login)
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md
 
-  # Upload to Google Drive (using gdrive CLI):
-  gdrive upload patent-disclosures/<slug>/disclosure.docx
+  # Or with a specific Google Drive folder and account:
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md \
+    --folder-id <DRIVE_FOLDER_ID> --account you@company.com
+
+  # Or directly with gog:
+  gog docs create "Patent Disclosure: <Title>" --file=patent-disclosures/<slug>/disclosure.md
+
+Alternative — convert to .docx first:
+  pandoc patent-disclosures/<slug>/disclosure.md -o patent-disclosures/<slug>/disclosure.docx
+  gog drive upload patent-disclosures/<slug>/disclosure.docx
 ```
 
 ### Step 5.5: Close Task & Offer Next

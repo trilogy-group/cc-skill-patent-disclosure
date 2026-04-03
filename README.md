@@ -139,18 +139,39 @@ Self-assessment scores on 4 dimensions (1 = strongest, higher = weaker):
 
 ## Export to Google Docs
 
+The plugin includes a helper script for [gogcli](https://github.com/tmc/gogcli) (`gog`) that creates a Google Doc directly from the disclosure markdown — including inline images and formatting.
+
 ```bash
-# Convert to docx (requires pandoc: brew install pandoc)
+# One-time setup
+brew install gogcli
+gog auth login
+
+# Export disclosure to Google Docs
+bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md
+
+# With a specific Drive folder and account:
+bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md \
+  --folder-id <DRIVE_FOLDER_ID> --account you@company.com
+
+# Or use gog directly:
+gog docs create "Patent Disclosure: My Invention" --file=patent-disclosures/<slug>/disclosure.md
+```
+
+### Alternative: pandoc + Drive upload
+
+```bash
+# Convert to docx
 pandoc patent-disclosures/<slug>/disclosure.md -o disclosure.docx
 
-# Upload (using gdrive CLI)
-gdrive upload disclosure.docx
+# Upload to Drive
+gog drive upload disclosure.docx
 ```
 
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) CLI
 - Git (for repo analysis)
+- [gogcli](https://github.com/tmc/gogcli) (recommended, for Google Docs export): `brew install gogcli`
 - [pandoc](https://pandoc.org/) (optional, for docx export): `brew install pandoc`
 - [beads](https://github.com/gastownhall/beads) (optional, for richer session tracking)
 
