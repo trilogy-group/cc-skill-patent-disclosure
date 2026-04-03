@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Beads (local project state)
+.beads/
+
+# Patent disclosure output (user-generated)
+patent-disclosures/
+
+# Cloned repos for analysis
+.patent-disclosure-workspace/
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Node
+node_modules/

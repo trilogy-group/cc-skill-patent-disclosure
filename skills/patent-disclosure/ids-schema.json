@@ -1,0 +1,207 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Patent Disclosure Intermediate Data Structure (IDS)",
+  "description": "Structured representation of a patent disclosure, capturing all content needed to generate final disclosure documents.",
+  "type": "object",
+  "required": ["invention_title", "invention_slug", "inventors", "created_date", "novelty_statement", "sections", "metadata"],
+  "properties": {
+    "invention_title": {
+      "type": "string",
+      "description": "Working title of the invention"
+    },
+    "invention_slug": {
+      "type": "string",
+      "description": "URL-safe identifier derived from the title (e.g., 'adaptive-rate-limiter')",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "inventors": {
+      "type": "array",
+      "description": "All persons who contributed to the inventive concept",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "Full name (First M. Last)" },
+          "citizenship": { "type": "string" },
+          "email": { "type": "string" },
+          "contribution": { "type": "string", "description": "Brief description of inventive contribution" }
+        }
+      },
+      "minItems": 1
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the IDS was first created"
+    },
+    "novelty_statement": {
+      "type": "string",
+      "description": "Validated 2-3 paragraph statement of what is novel about the invention"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "repository_url": { "type": "string", "description": "Git repository URL" },
+        "business_unit": { "type": "string" },
+        "products": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Products intended to use this invention"
+        },
+        "conception_date": { "type": "string", "description": "When inventors first had the idea" },
+        "reduction_to_practice_date": { "type": "string", "description": "When implementation began" },
+        "first_written_record": {
+          "type": "object",
+          "properties": {
+            "date": { "type": "string" },
+            "document_name": { "type": "string" },
+            "location": { "type": "string" }
+          }
+        },
+        "prior_disclosure": {
+          "type": "object",
+          "properties": {
+            "disclosed_externally": { "type": "boolean" },
+            "disclosure_details": { "type": "string" },
+            "nda_in_place": { "type": "boolean" },
+            "sold_or_offered": { "type": "boolean" },
+            "sale_details": { "type": "string" },
+            "future_disclosure_planned": { "type": "boolean" },
+            "future_details": { "type": "string" }
+          }
+        },
+        "key_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "File paths central to the invention"
+        },
+        "beads_task_id": {
+          "type": "string",
+          "description": "Beads task ID tracking this invention"
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "description": "The 11 disclosure sections",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "question", "answer"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "executive_summary",
+              "novelty",
+              "context",
+              "problems_solved",
+              "introduction",
+              "what_and_how",
+              "case_studies",
+              "pseudocode",
+              "data_structures",
+              "implementation",
+              "alternatives"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable section name"
+          },
+          "question": {
+            "type": "string",
+            "description": "The core question this section answers"
+          },
+          "answer": {
+            "type": "string",
+            "description": "The generated content (Markdown formatted)"
+          },
+          "diagrams": {
+            "type": "array",
+            "description": "Mermaid diagrams included in this section",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["architecture", "flowchart", "sequence", "er", "data_flow", "state", "class", "other"],
+                  "description": "Diagram category"
+                },
+                "caption": { "type": "string", "description": "What the diagram shows" },
+                "mermaid": { "type": "string", "description": "Mermaid diagram source code" }
+              }
+            }
+          },
+          "code_references": {
+            "type": "array",
+            "description": "Source files referenced in this section",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": { "type": "string" },
+                "lines": { "type": "string", "description": "Line range, e.g., '42-87'" },
+                "description": { "type": "string" }
+              }
+            }
+          },
+          "qc_status": {
+            "type": "string",
+            "enum": ["pending", "pass", "needs_work", "major_gaps"],
+            "description": "Quality control assessment status"
+          },
+          "qc_notes": {
+            "type": "string",
+            "description": "QC feedback for this section"
+          }
+        }
+      },
+      "minItems": 11,
+      "maxItems": 11
+    },
+    "qc_assessment": {
+      "type": "object",
+      "description": "Overall quality control results",
+      "properties": {
+        "patent_committee_rubric": {
+          "type": "object",
+          "properties": {
+            "technical_merit": {
+              "type": "object",
+              "properties": {
+                "score": { "type": "integer", "minimum": 1, "maximum": 4 },
+                "justification": { "type": "string" }
+              }
+            },
+            "alternatives": {
+              "type": "object",
+              "properties": {
+                "score": { "type": "integer", "minimum": 1, "maximum": 4 },
+                "justification": { "type": "string" }
+              }
+            },
+            "value_to_company": {
+              "type": "object",
+              "properties": {
+                "score": { "type": "integer", "minimum": 1, "maximum": 4 },
+                "justification": { "type": "string" }
+              }
+            },
+            "infringement_detection": {
+              "type": "object",
+              "properties": {
+                "score": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "justification": { "type": "string" }
+              }
+            }
+          }
+        },
+        "cross_section_consistency": { "type": "string" },
+        "prioritized_improvements": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "overall_assessment": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "patent-disclosure",
+  "version": "1.0.0",
+  "description": "Interactively discover patentable ideas in a codebase and generate high-quality patent disclosure documents",
+  "author": {
+    "name": "Trilogy Group",
+    "url": "https://github.com/trilogy-group"
+  },
+  "repository": "https://github.com/trilogy-group/cc-skill-patent-disclosure",
+  "license": "MIT",
+  "keywords": ["patent", "disclosure", "invention", "ip", "intellectual-property"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "postInstall": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh"
+}
