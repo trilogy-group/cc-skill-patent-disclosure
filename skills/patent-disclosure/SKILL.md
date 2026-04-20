@@ -38,55 +38,99 @@ This skill supports three modes. Ask the user which they want if unclear:
 
 ## First-Run Setup
 
-Before doing anything else on first invocation, run the dependency checks and auto-install anything missing. Run ALL checks in a single bash call:
+**Mandatory output contract:** every disclosure produced by this skill is published as a **Google Doc** via `gogcli`. Local markdown files are intermediate artifacts used to build the doc — they are NOT the deliverable. Do not offer a "local only" or "skip Google Docs" path.
+
+Because of that contract, **gogcli is a hard prerequisite** and must be both installed AND authorized against a Google account before any other work begins. Run ALL checks in a single bash call:
 
 ```bash
-MISSING=""
-
-# 1. Check gogcli (gog) — needed for Google Docs export
+# 1. gogcli (gog) — REQUIRED
 if ! command -v gog &> /dev/null; then
-  echo "[INSTALLING] gogcli — for Google Docs export..."
+  echo "[INSTALLING] gogcli via Homebrew..."
   if command -v brew &> /dev/null; then
-    brew install gogcli 2>&1
-  else
-    echo "[WARN] Homebrew not found. Install gogcli manually: https://github.com/tmc/gogcli"
-    MISSING="$MISSING gog"
+    brew install gogcli 2>&1 || true
   fi
 fi
 
-# 2. Check mermaid-cli (mmdc) — needed for diagram rendering
+# 2. Probe gog authorization.
+# NOTE: `gog auth status` only prints config paths — it does NOT report sign-in
+# state. The reliable probe is `gog auth list --json`.
+GOG_INSTALLED="no"; GOG_AUTHED="no"; GOG_ACCOUNTS=""
+if command -v gog &> /dev/null; then
+  GOG_INSTALLED="yes"
+  GOG_ACCOUNTS=$(gog auth list --json 2>/dev/null | grep -o '"email": *"[^"]*"' | sed 's/"email": *"\([^"]*\)"/\1/' | paste -sd ',' -)
+  if [ -n "${GOG_ACCOUNTS}" ]; then GOG_AUTHED="yes"; fi
+fi
+echo "GOG_INSTALLED=${GOG_INSTALLED}"
+echo "GOG_AUTHED=${GOG_AUTHED}"
+echo "GOG_ACCOUNTS=${GOG_ACCOUNTS}"
+
+# 3. mermaid-cli (mmdc) — strongly recommended (diagrams as PNGs)
 if ! command -v mmdc &> /dev/null; then
-  echo "[INSTALLING] mermaid-cli — for rendering diagrams to images..."
+  echo "[INSTALLING] mermaid-cli..."
   if command -v npm &> /dev/null; then
-    npm install -g @mermaid-js/mermaid-cli 2>&1
+    npm install -g @mermaid-js/mermaid-cli 2>&1 || true
   elif command -v nvm &> /dev/null; then
     nvm use default 2>/dev/null
-    npm install -g @mermaid-js/mermaid-cli 2>&1
-  else
-    echo "[WARN] npm not found. Install mermaid-cli manually: npm install -g @mermaid-js/mermaid-cli"
-    MISSING="$MISSING mmdc"
+    npm install -g @mermaid-js/mermaid-cli 2>&1 || true
   fi
 fi
 
-# 3. Check beads (bd) — optional, for cross-session tracking
+# 4. beads (optional)
 if command -v bd &> /dev/null; then
-  if [ ! -d ".beads" ]; then
-    bd init --quiet 2>/dev/null
-  fi
+  if [ ! -d ".beads" ]; then bd init --quiet 2>/dev/null; fi
   echo "BEADS_AVAILABLE=true"
 else
   echo "BEADS_AVAILABLE=false"
 fi
 
-# 4. Report status
+# 5. Status summary
 echo ""
-if command -v gog &> /dev/null; then echo "[OK] gogcli"; else echo "[MISSING] gogcli"; fi
-if command -v mmdc &> /dev/null; then echo "[OK] mermaid-cli"; else echo "[MISSING] mermaid-cli"; fi
-if command -v bd &> /dev/null; then echo "[OK] beads"; else echo "[INFO] beads not installed (optional — using file-based state)"; fi
-if command -v pandoc &> /dev/null; then echo "[OK] pandoc"; else echo "[INFO] pandoc not installed (optional — for .docx export)"; fi
+if command -v gog &> /dev/null;    then echo "[OK] gogcli";      else echo "[MISSING] gogcli (REQUIRED)";      fi
+if command -v mmdc &> /dev/null;   then echo "[OK] mermaid-cli"; else echo "[MISSING] mermaid-cli (recommended)"; fi
+if command -v bd &> /dev/null;     then echo "[OK] beads";       else echo "[INFO] beads not installed (optional)"; fi
+if command -v pandoc &> /dev/null; then echo "[OK] pandoc";      else echo "[INFO] pandoc not installed (optional)"; fi
 ```
 
-If any installs failed, tell the user what's missing and how to fix it, but **do not block** — proceed with the skill. The only hard requirement is the skill itself; export tools are needed only at Phase 5.
+### Hard-stop conditions — do NOT start Phase 1 until both are resolved
+
+**1. gogcli is missing (`GOG_INSTALLED=no`).** Auto-install may have failed. Tell the user:
+
+> *"gogcli is required — every disclosure this skill produces is published as a Google Doc, and I cannot proceed without it. Please run the setup script, which walks you through install + Google sign-in:*
+> ```
+> bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh
+> ```
+> *Or install manually:*
+> ```
+> brew install gogcli        # macOS
+> # see https://github.com/tmc/gogcli for other platforms
+> ```
+> *Then re-run `/patent-disclosure`."*
+
+Do not proceed. Exit this phase.
+
+**2. gogcli is installed but unauthorized (`GOG_AUTHED=no`).** Walk the user through OAuth interactively:
+
+> *"gogcli is installed but no Google account is authorized yet. This is a one-time OAuth setup.*
+>
+> *Which Google account do you want disclosures to be created under? (Usually your work account — e.g. `you@company.com`.)*
+>
+> *Once you tell me the email, run this in your terminal — it will open a browser for sign-in:*
+> ```
+> gog login <your-email>
+> ```
+> *If your Workspace admin requires explicit scopes, use:*
+> ```
+> gog login <your-email> --scopes drive,docs
+> ```
+> *Reply 'done' once the browser confirms you're signed in, and I'll verify."*
+
+After the user says "done", re-probe with `gog auth list --json` and confirm the account appears. Do not proceed until the probe succeeds. If it still fails, ask for the exact error output and help diagnose (common causes: denied scopes, consent screen blocked by Workspace admin, wrong client).
+
+### Soft warnings (do not block)
+
+- **mermaid-cli missing.** Warn the user: *"mermaid-cli isn't installed, so diagrams will appear as code blocks inside the Google Doc rather than rendered images. Install with `npm install -g @mermaid-js/mermaid-cli` for best results."* Proceed anyway.
+
+### Workflow tracking
 
 **If beads is available:** Use it for workflow tracking (epics, tasks, notes) as described throughout this document.
 
@@ -107,7 +151,8 @@ If any installs failed, tell the user what's missing and how to fix it, but **do
 }
 ```
 
-Confirm to the user: *"Patent disclosure skill ready. Let me know if you want full discovery, targeted analysis of specific code, or a quick triage."*
+Once the mandatory prerequisites are green, confirm:
+> *"Patent disclosure skill ready. Output will be published to Google Docs via gogcli (<account email>). Let me know if you want full discovery, targeted analysis of specific code, or a quick triage."*
 
 ---
 
@@ -460,13 +505,15 @@ Update `.state.json`: `last_phase_completed: "phase_4"`.
 
 ## Phase 5: Final Output
 
-### Step 5.1: Generate Disclosure Document
+**Deliverable contract:** the final deliverable is a **Google Doc**. The files written to `patent-disclosures/<slug>/` are intermediate artifacts used to build that doc and provide a reproducible record — they are NOT the deliverable. Do not tell the user "your disclosure is ready at patent-disclosures/..." as if the markdown were the handoff; always present the Google Doc URL as the primary deliverable.
+
+### Step 5.1: Generate Intermediate Disclosure Markdown
 
 Read the template from `${CLAUDE_SKILL_DIR}/templates/disclosure-template.md`. Use it as a structural guide — fill in each section from the IDS JSON content.
 
 **Important:** Diagrams are already embedded within each section's content (in the IDS `answer` field). Do NOT add separate diagram subsections that duplicate them. The template's diagram placeholders are for sections where the section prompt did not naturally produce a diagram — only fill them if the section content does not already contain that diagram type.
 
-Save to: `patent-disclosures/<invention-slug>/disclosure.md`
+Save to: `patent-disclosures/<invention-slug>/disclosure.md` (intermediate — feeds the renderer in Step 5.4).
 
 ### Step 5.1b: Render Diagrams to Images
 
@@ -514,9 +561,11 @@ Append this to `disclosure.md`.
 
 Save the QC assessment to: `patent-disclosures/<invention-slug>/qc-report.md`
 
-### Step 5.4: Export to Google Docs
+### Step 5.4: Publish to Google Docs (mandatory)
 
-**Always use the render-and-export script** to create the Google Doc. This pre-renders Mermaid diagrams to PNG images so they display as actual diagrams in Google Docs (not code blocks).
+Publishing to Google Docs is REQUIRED. This is the deliverable. If you cannot publish, you have not completed the skill — stop and resolve the blocker.
+
+Use the render-and-export script. It pre-renders Mermaid diagrams to PNG images so they display as actual diagrams in the Google Doc (not code blocks):
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md
@@ -528,35 +577,46 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/render-and-export.sh patent-disclosures/<slug
   --account you@company.com --folder-id <DRIVE_FOLDER_ID>
 ```
 
-**Prerequisites check — run before exporting:**
+**Re-verify prerequisites immediately before publishing** (the first-run check may have run in an earlier session):
+
 ```bash
-# Check mmdc (mermaid renderer)
-if ! command -v mmdc &> /dev/null; then
-  echo "Installing mermaid-cli for diagram rendering..."
-  npm install -g @mermaid-js/mermaid-cli
-fi
-
-# Check gog (Google Docs uploader)
+# gog installed AND authorized
 if ! command -v gog &> /dev/null; then
-  echo "gogcli not found. Install with: brew install gogcli && gog auth login"
+  echo "BLOCKER: gogcli missing — cannot publish. Run: bash \${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh"
+  exit 1
+fi
+if ! gog auth list --json 2>/dev/null | grep -q '"email"'; then
+  echo "BLOCKER: gogcli not authorized — run: gog login <your-email>"
+  exit 1
+fi
+
+# mmdc (diagrams → PNGs) — recommended, not fatal
+if ! command -v mmdc &> /dev/null; then
+  echo "NOTE: mermaid-cli missing; diagrams will appear as code blocks."
 fi
 ```
 
-If `mmdc` is unavailable and cannot be installed, fall back to `export-to-gdocs.sh` (diagrams will appear as code blocks) and inform the user:
-> *"Diagrams exported as code blocks because mermaid-cli (mmdc) is not available. Install with `npm install -g @mermaid-js/mermaid-cli` and re-export for rendered images."*
+**If either gog blocker fires, stop.** Re-run the First-Run Setup prompts — do NOT continue with a local-only output.
 
-After export, print the Google Doc URL and tell the user:
+**If `mmdc` is unavailable** and cannot be installed, fall back to `export-to-gdocs.sh` (same script, diagrams as code blocks) and warn the user — but a Google Doc is still produced:
+> *"Diagrams were exported as code blocks because mermaid-cli (mmdc) is not available. Install with `npm install -g @mermaid-js/mermaid-cli` and re-run Step 5.4 for rendered images."*
+
+After the Google Doc is created, capture the URL from the gog JSON output and present it as THE deliverable:
 
 ```
-Your disclosure is saved to:
-  patent-disclosures/<slug>/disclosure.md         (Canonical — Mermaid source)
-  patent-disclosures/<slug>/disclosure-export.md  (Export — rendered PNG images)
-  patent-disclosures/<slug>/diagrams/             (Rendered diagram PNGs)
-  patent-disclosures/<slug>/ids.json              (Intermediate data structure)
-  patent-disclosures/<slug>/qc-report.md          (Quality assessment)
+Disclosure for '<Title>' is published.
 
-Google Doc: <URL from gog output>
+→ Google Doc (deliverable): <URL from gog output>
+
+Reproducible artifacts in patent-disclosures/<slug>/:
+  disclosure.md          (intermediate — Mermaid source)
+  disclosure-export.md   (intermediate — rendered PNG references)
+  diagrams/              (rendered diagram PNGs)
+  ids.json               (intermediate data structure)
+  qc-report.md           (QC assessment)
 ```
+
+Do not describe the skill as "complete" for this invention until the Google Doc URL has been generated and presented to the user.
 
 ### Step 5.5: Close Task & Offer Next
 

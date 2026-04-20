@@ -6,10 +6,10 @@
 #   bash scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md --account you@company.com
 #   bash scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md --folder-id <ID>
 #
-# Prerequisites:
+# Prerequisites (run `bash scripts/setup.sh` to configure all of these):
 #   npm install -g @mermaid-js/mermaid-cli   (provides mmdc)
 #   brew install gogcli                       (provides gog)
-#   gog auth login                            (one-time OAuth)
+#   gog login <your-email>                    (one-time OAuth; opens browser)
 
 set -euo pipefail
 
@@ -31,8 +31,17 @@ if ! command -v mmdc &> /dev/null; then
     echo "Error: mmdc (mermaid-cli) not found. Install with: npm install -g @mermaid-js/mermaid-cli"
     exit 1
 fi
+SETUP_SCRIPT="$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 if ! command -v gog &> /dev/null; then
-    echo "Error: gog (gogcli) not found. Install with: brew install gogcli"
+    echo "Error: gog (gogcli) not found — required for publishing to Google Docs."
+    echo "       Run: bash ${SETUP_SCRIPT}"
+    echo "       or:  brew install gogcli"
+    exit 1
+fi
+if ! gog auth list --json 2>/dev/null | grep -q '"email"'; then
+    echo "Error: gogcli has no authorized Google account."
+    echo "       Run: gog login <your-email>"
+    echo "       or:  bash ${SETUP_SCRIPT}   (walks through sign-in)"
     exit 1
 fi
 

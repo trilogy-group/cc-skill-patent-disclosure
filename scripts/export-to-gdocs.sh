@@ -6,9 +6,9 @@
 #   bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md --folder-id <FOLDER_ID>
 #   bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md --account you@company.com
 #
-# Prerequisites:
-#   brew install gogcli   (or see https://github.com/tmc/gogcli)
-#   gog auth login        (one-time OAuth setup)
+# Prerequisites (run `bash scripts/setup.sh` to configure all of these):
+#   brew install gogcli         (or see https://github.com/tmc/gogcli)
+#   gog login <your-email>      (one-time OAuth; opens browser)
 
 set -euo pipefail
 
@@ -30,11 +30,18 @@ if [ ! -f "$DISCLOSURE_FILE" ]; then
     exit 1
 fi
 
-# Check for gog
+# Check for gog — gogcli is a hard prerequisite
+SETUP_SCRIPT="$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 if ! command -v gog &> /dev/null; then
-    echo "Error: gog (gogcli) is not installed."
-    echo "Install with: brew install gogcli"
-    echo "Then run: gog auth login"
+    echo "Error: gog (gogcli) is not installed — required for Google Docs publishing."
+    echo "       Run: bash ${SETUP_SCRIPT}"
+    echo "       or:  brew install gogcli"
+    exit 1
+fi
+if ! gog auth list --json 2>/dev/null | grep -q '"email"'; then
+    echo "Error: gogcli has no authorized Google account."
+    echo "       Run: gog login <your-email>"
+    echo "       or:  bash ${SETUP_SCRIPT}   (walks through sign-in)"
     exit 1
 fi
 

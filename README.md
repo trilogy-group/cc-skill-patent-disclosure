@@ -22,11 +22,33 @@ claude plugin marketplace add trilogy-group/cc-skill-patent-disclosure
 claude plugin install patent-disclosure@trilogy-patent-tools
 ```
 
-Optionally install [beads](https://github.com/gastownhall/beads) for richer cross-session tracking:
+### Required one-time setup
+
+Every disclosure is published to **Google Docs** — there is no local-only mode. You must install and authorize [`gogcli`](https://github.com/tmc/gogcli) before running the skill. Use the setup script, which walks you through install + OAuth sign-in end-to-end:
+
 ```bash
 bash scripts/setup.sh
 ```
-The plugin works without beads using file-based state.
+
+The script will:
+
+1. Verify Homebrew is available (or error out with instructions).
+2. `brew install gogcli` if missing.
+3. Probe `gog auth list --json` for an authorized account.
+4. If none, prompt you for the Google account email and run `gog login <email>` — a browser window opens for OAuth consent.
+5. Install `mermaid-cli` (diagrams → PNGs, recommended) and flag optional extras (pandoc, beads).
+
+If you prefer to do it by hand:
+
+```bash
+brew install gogcli
+gog login you@company.com                 # opens browser for OAuth
+# Workspace admin requires explicit scopes?
+gog login you@company.com --scopes drive,docs
+npm install -g @mermaid-js/mermaid-cli   # recommended
+```
+
+Optionally install [beads](https://github.com/gastownhall/beads) for richer cross-session tracking. Without it the plugin falls back to file-based state.
 
 ### For Development / Testing
 
@@ -81,13 +103,17 @@ If you're not in a git repo, the skill asks for a GitHub URL, clones the repo, a
 
 ## Output
 
-For each invention, the plugin produces:
+Every invention is delivered as a **Google Doc** in the authorized account's Drive. The local files are intermediate artifacts kept for reproducibility and editing:
 
 ```
-patent-disclosures/<invention-slug>/
-├── disclosure.md     # Full attorney-ready disclosure with draft claims
-├── ids.json          # Intermediate Data Structure (structured JSON)
-└── qc-report.md     # Quality assessment with rubric scores
+Google Doc (deliverable) — URL printed at the end of the session.
+
+patent-disclosures/<invention-slug>/   (intermediate artifacts)
+├── disclosure.md          # Mermaid-source markdown used to build the doc
+├── disclosure-export.md   # Version with rendered PNG references
+├── diagrams/              # Rendered diagram PNGs
+├── ids.json               # Intermediate Data Structure (structured JSON)
+└── qc-report.md           # Quality assessment with rubric scores
 ```
 
 ### Disclosure Sections
@@ -137,51 +163,37 @@ Self-assessment scores on 4 dimensions (1 = strongest, higher = weaker):
 | Value to Company | 1-4 | 1=Key strategic ... 4=Defensive only |
 | Infringement Detection | 1-3 | 1=Easy to detect ... 3=Needs source code |
 
-## Export to Google Docs
+## Publishing
 
-The plugin renders Mermaid diagrams to PNG images and creates a Google Doc with actual diagram images (not code blocks).
+The skill publishes automatically at the end of each disclosure — you shouldn't normally need to run these scripts by hand. They're here for re-publishing an edited disclosure or for troubleshooting:
 
 ```bash
-# One-time setup
-brew install gogcli
-npm install -g @mermaid-js/mermaid-cli
-gog auth login
-
-# Export with rendered diagrams (recommended)
+# Publish with rendered diagrams (this is what the skill runs)
 bash scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md
 
-# With a specific Drive folder and account:
+# Pin to a specific Drive folder / account:
 bash scripts/render-and-export.sh patent-disclosures/<slug>/disclosure.md \
   --folder-id <DRIVE_FOLDER_ID> --account you@company.com
 ```
 
-This produces two versions of the disclosure:
-- `disclosure.md` — canonical version with Mermaid source (renders in GitHub, VS Code)
-- `disclosure-export.md` — export version with PNG image references (for Google Docs, Word, PDF)
-- `diagrams/` — rendered PNG files for each diagram
-
-### Alternative: without diagram rendering
-
-If `mmdc` is not available, you can export with diagrams as code blocks:
+If `mmdc` isn't installed, diagrams fall back to code blocks — a Google Doc is still produced:
 ```bash
 bash scripts/export-to-gdocs.sh patent-disclosures/<slug>/disclosure.md
 ```
 
-### Alternative: pandoc + Drive upload
-
-```bash
-pandoc patent-disclosures/<slug>/disclosure.md -o disclosure.docx
-gog drive upload disclosure.docx
-```
-
 ## Prerequisites
 
+**Required:**
 - [Claude Code](https://claude.ai/code) CLI
 - Git (for repo analysis)
-- [gogcli](https://github.com/tmc/gogcli) (recommended, for Google Docs export): `brew install gogcli`
-- [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (recommended, for diagram rendering): `npm install -g @mermaid-js/mermaid-cli`
-- [pandoc](https://pandoc.org/) (optional, for docx export): `brew install pandoc`
-- [beads](https://github.com/gastownhall/beads) (optional, for richer session tracking)
+- [gogcli](https://github.com/tmc/gogcli) — installed AND authorized against a Google account. Use `bash scripts/setup.sh` to set this up end-to-end.
+
+**Recommended:**
+- [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) — renders diagrams as images inside the Google Doc: `npm install -g @mermaid-js/mermaid-cli`
+
+**Optional:**
+- [pandoc](https://pandoc.org/) — `.docx` fallback: `brew install pandoc`
+- [beads](https://github.com/gastownhall/beads) — cross-session tracking
 
 ## Plugin Structure
 
