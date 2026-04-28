@@ -3,6 +3,18 @@
 ## Question
 What is the core algorithmic logic of this invention expressed as clear pseudocode?
 
+## Length budget (HARD)
+
+**Each algorithm: 30–60 lines of pseudocode. Cap at 80 lines for genuinely complex algorithms with explicit justification.** The whole section should not exceed `60 lines × N algorithms`. Live observation: section generators consistently produce 150–250 lines per algorithm; this is slop, not detail.
+
+To stay within budget:
+- **Show novel logic only.** Standard library calls, parameter validation, error handling, logging, and trivial control flow do not belong in pseudocode for a patent disclosure. Mark them out: `// [omitted: standard input validation]`.
+- **One step = one pseudocode line.** Do not unfold a single conceptual step across 5–10 lines.
+- **Use higher-order operations.** `for each pair (a, b) where jaccard(a, b) ∈ [0.20, 0.80]:` is one line and is the actual novel step. Don't expand it into nested loops with index variables.
+- **Comments belong on the novel parts.** A `// [NOVEL]` comment with one sentence explaining why this step is non-obvious is worth 20 lines of obvious-step expansion.
+
+Each algorithm MUST be marked `[NOVEL]` or `[STANDARD]` overall. `[STANDARD]` algorithms should not appear in this section at all unless they are essential context for a novel algorithm.
+
 ## Prompt
 
 Provide pseudocode that captures the invention's core logic. This pseudocode serves as a precise, language-agnostic description that a patent attorney can include in the filing and that an engineer could use to reimplement the invention.

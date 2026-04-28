@@ -1,0 +1,12 @@
+{
+  "invention_title": "Bad Fixture",
+  "invention_slug": "bad-fixture",
+  "inventors": [{"name": "Test Inventor"}],
+  "created_date": "2026-04-28",
+  "novelty_statement": "Stub.",
+  "metadata": {},
+  "sections": [
+    {"id": "executive_summary", "name": "Executive Summary", "question": "?", "status": "draft", "answer": "Stub."},
+    {"id": "novelty",           "name": "Novelty",           "question": "?", "status": "draft", "answer": "Stub."}
+  ]
+}

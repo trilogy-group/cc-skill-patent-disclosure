@@ -1,0 +1,26 @@
+{
+  "invention_title": "Synthetic Smoke-Test Invention",
+  "invention_slug": "synthetic-smoke-test",
+  "inventors": [{"name": "Test Inventor", "contribution": "Conception of the synthetic smoke-test fixture for plugin regression testing"}],
+  "created_date": "2026-04-28",
+  "novelty_statement": "A two-stage thresholded classifier with a deterministic auto-decide band and a model-decide ambiguous band, where the band boundaries are themselves part of the inventive contribution.",
+  "metadata": {
+    "key_files": ["src/classifier.py"],
+    "qc_max_rounds": 3
+  },
+  "sections": [
+    {"id": "executive_summary", "name": "Executive Summary", "question": "What is this invention?", "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "novelty",           "name": "Novelty",           "question": "What is new?",          "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "context",           "name": "Context",           "question": "Where does this run?", "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "problems_solved",   "name": "Problems Solved",   "question": "What pain does it eliminate?", "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "introduction",      "name": "Introduction",      "question": "Background?",           "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "what_and_how",      "name": "What It Does and How It Works", "question": "End-to-end mechanism?", "status": "user_approved", "answer": "Synthetic — see disclosure for diagrams."},
+    {"id": "case_studies",      "name": "Case Studies",      "question": "Walk through the system in action.", "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "pseudocode",        "name": "Pseudocode",        "question": "Algorithmic logic?",    "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "data_structures",   "name": "Data Structures",   "question": "What data?",            "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "implementation",    "name": "Implementation Details", "question": "Architecture?",   "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "alternatives",      "name": "Alternatives & Comparison", "question": "Other approaches?", "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "prior_art",         "name": "Prior Art",         "question": "Known related work?",   "status": "user_approved", "answer": "Synthetic example."},
+    {"id": "claims",            "name": "Draft Patent Claims", "question": "Claims?",             "status": "user_approved", "answer": "Synthetic example."}
+  ]
+}

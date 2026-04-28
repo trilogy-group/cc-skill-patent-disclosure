@@ -28,11 +28,12 @@ You are an expert patent disclosure analyst and writer. You help engineers disco
 
 ## Modes of Operation
 
-This skill supports three modes. Ask the user which they want if unclear:
+This skill supports four modes. Ask the user which they want if unclear:
 
 1. **Full Discovery** (default) — Explore the entire codebase, surface candidates, triage, then generate disclosures. Start at Phase 1.
 2. **Targeted Analysis** — The user points to specific files/functions/modules they believe are novel. Skip Phase 1 codebase exploration. Jump to Phase 1.3 with the user's candidates, then Phase 2.
 3. **Quick Triage** — Produce a 1-page invention summary for each candidate to help decide if a full disclosure is worth pursuing. Run Phase 1, then for each candidate generate only a ~500-word brief (title, novelty hypothesis, key files, strength/weakness assessment, recommendation: pursue/skip/needs-more-info). Do NOT run Phases 3-5.
+4. **QC-Only** — Re-run the multi-agent QC loop (Phase 4) on an existing disclosure without regenerating from scratch. Useful when the user has an old disclosure that needs cleanup, or when the QC team has been improved and the user wants to re-process a prior output. See "QC-Only Mode" below.
 
 ---
 
@@ -181,6 +182,50 @@ If no active work is found, proceed to Phase 1.
 
 ---
 
+## QC-Only Mode
+
+**Trigger:** the user says any of:
+- *"qc only"* / *"re-qc"* / *"re-run qc"*
+- *"run the QC loop on `<doc>`"*
+- *"clean up this disclosure: `<google-doc-url>`"*
+- Provides a Google Doc URL or local `patent-disclosures/<slug>` directory and asks for QC
+
+In QC-Only mode you skip Phases 1–3 entirely. You do NOT explore the codebase, you do NOT regenerate sections — you only run the multi-agent QC team (Phase 4) on the existing artifacts and republish.
+
+### QC-Only Step 1: Resolve the input
+
+Use the helper script to resolve the input (local dir OR Google Doc URL OR doc ID) into a workspace:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/qc-rerun.sh <input> [--account <user@org>]
+```
+
+The script:
+- Detects whether the input is a local path or a Google Doc.
+- For Google Docs, exports markdown via `gog docs export`.
+- Synthesizes a stub IDS from the disclosure markdown if no IDS exists.
+- Snapshots `qc-rounds/round-0` and writes `qc-rerun-manifest.json`.
+
+### QC-Only Step 2: Hand off to Phase 4
+
+Read the manifest at `<work-dir>/qc-rerun-manifest.json`. Use the resolved `slug`, `work_dir`, `ids_path`, `disclosure_path`. Set `ROUND=1` and jump to **Phase 4 Step 4.2** (run a critic round). Everything from Phase 4 onward is identical to a normal run.
+
+### QC-Only Step 3: Publish
+
+After Phase 4 completes, run Phase 5 publication. The published Google Doc title should be suffixed `[QC v<plugin-version>]` to distinguish it from the original. The original Google Doc is NEVER overwritten.
+
+### Caveats to surface to the user up front
+
+- **No source codebase access** unless the user provides it. The Technical Faithfulness Reviewer's findings will be limited (it falls back to flagging only what can be inferred from the prose).
+- **Stub IDS** — inventor metadata, prior-disclosure history, and other IDS fields not derivable from the disclosure prose will use placeholders. The Lead Attorney will flag these as `missing_metadata` in QC; the user must fill them in before filing.
+
+Telemetry: emit a `qc_only_start` event:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug <slug> --phase qc_only --event start --data '{"source":"<gdoc|local>"}'
+```
+
+---
+
 ## Phase 1: Codebase Acquisition & Exploration
 
 ### Step 1.1: Determine Codebase Source
@@ -246,6 +291,14 @@ Then ask the user:
 > *You can also point me to specific files or functions if you know what you want to patent.*
 >
 > *Select the ones you'd like to pursue (e.g., "1 and 3"), and I'll help you draft disclosures for each. We'll work through them one at a time.*
+
+### Step 1.3b: Telemetry
+
+After candidates are presented, emit a phase_1 telemetry event:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug <slug-tbd-or-pending> --phase phase_1 --event end --data '{"candidates":<count>}'
+```
+Use `pending` as the slug if none has been chosen yet — replace with the real slug after Step 1.4.
 
 ### Step 1.4: Create Tracking
 
@@ -435,26 +488,69 @@ Save to: `patent-disclosures/<invention-slug>/ids.json`
 
 Include all diagrams in the `diagrams` array for each section, and all file references in `code_references`.
 
-### Step 3.3: Diagram presence check (fail-fast before Phase 4)
+### Step 3.3: Structural validation + auto-retry for missing diagrams
 
-After all sections are generated and assembled into the working `disclosure.md`, run a hard diagram-presence check. The four diagram-mandating sections (`what_and_how`, `data_structures`, `implementation`, `case_studies`) must contain Mermaid blocks of the right types. The Phase 4 QC team can add missing diagrams, but it is far cheaper to catch them here.
+Run the structural validator on the assembled artifact pair:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/qc-validate-mermaid.sh patent-disclosures/<slug>/disclosure.md
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/disclosure-validate.sh patent-disclosures/<slug>/
 ```
 
-The script extracts every Mermaid block, validates each with `mmdc`, and writes a summary JSON. Use the count + the IDS `diagrams` arrays to verify:
+This checks IDS shape, all 13 canonical sections present (or `not_applicable`), mandated diagrams in §6 (≥3), §9 (≥1), §10 (≥1), no duplicate H2 headers, no leftover `DIAGRAM_BLOCKED:` sentinels, all Mermaid blocks render under `mmdc`, and per-section length warnings.
 
-- `what_and_how`: ≥3 diagrams (architecture, flowchart, sequence)
-- `data_structures`: ≥1 erDiagram or classDiagram
-- `implementation`: ≥1 component-interaction diagram (graph)
-- `case_studies`: ≥1 walkthrough diagram (recommended; warn if missing)
+**Auto-retry on missing required diagrams (cap = 1 per section).** If the validator reports a missing required diagram for a section AND no `DIAGRAM_BLOCKED` sentinel is present in that section, re-launch the section generator ONCE with this directive prepended:
 
-Also check each section's text for the sentinel `DIAGRAM_BLOCKED: <type> — <reason>` — if a section reports a blocked diagram, the section subagent could not construct one. Surface this to the user with the reason and ask whether to proceed (the QC team can attempt to generate one, or the user may have additional context to provide).
+> *"Your prior generation of `<section>` did not include the required `<diagram_type>` diagram (e.g. `system_architecture` for §6, `er` for §9, `component_interaction` for §10). The section is invalid without it. Regenerate the section including all mandated diagrams. If you genuinely cannot construct the diagram from the available code/spec, append a single line `DIAGRAM_BLOCKED: <type> — <one-sentence reason>` at the very end of your section content."*
 
-If any required diagram is missing AND no `DIAGRAM_BLOCKED` sentinel was emitted, re-launch the affected section's generator with the section-specific prompt (which already mandates the diagram). Do NOT advance to Phase 4 with known-missing required diagrams.
+Re-run the validator after the retry. If any required diagram is still missing AND no `DIAGRAM_BLOCKED` sentinel was added, surface to the user:
 
-### Step 3.4: Save Progress
+> *"Section §X still does not have the required `<diagram_type>` diagram after one retry. The Phase 4 QC team can attempt to generate it from the section's prose, or you can provide additional context. Proceed to Phase 4 (recommended) or pause to add context manually?"*
+
+If a `DIAGRAM_BLOCKED` sentinel IS present, surface the reason to the user and ask whether to proceed. The Phase 4 Diagram Auditor will see the sentinel and propose a Mermaid skeleton.
+
+### Step 3.4: Cross-section consistency check
+
+Inconsistencies between novelty statement, §6 (What It Does), §8 (Pseudocode), §10 (Implementation), and §13 (Claims) are the most common Lead-Attorney finding in QC. Catching them here is far cheaper than running an extra QC round.
+
+Launch a small **consistency-checker subagent**:
+
+```
+Use Agent tool with:
+  subagent_type: "general-purpose"
+  description: "Cross-section consistency check"
+  prompt: |
+    Read the IDS at patent-disclosures/<slug>/ids.json and disclosure.md at
+    patent-disclosures/<slug>/disclosure.md.
+
+    Identify cross-section inconsistencies. Specifically check:
+    1. Does the novelty statement claim mechanism X? Does §6 (What It Does) describe X — same name, same approach? Does §8 (Pseudocode) implement X?
+    2. Do the claims reference terms that are defined in §5 (Introduction) or §6?
+    3. Numbered constants (thresholds, weights, lookback windows): does the same number appear consistently across sections that mention it? Flag mismatches like 0.80 in §6 vs 0.85 in claims.
+    4. Are inventor / disclosure-history fields populated in IDS metadata, or are placeholders left over?
+    5. Do the same component/module names appear across §6, §10, and the diagrams?
+
+    Output ONLY a single JSON object:
+    {
+      "consistency_issues": [
+        {
+          "severity": "critical | high | medium | low",
+          "sections": ["<section_id>", ...],
+          "description": "<what is inconsistent, in concrete terms with quoted snippets>",
+          "suggested_fix": "<a directive the Writer can act on>"
+        }
+      ],
+      "summary": "<one sentence: 'OK' or 'N issues found, most severe: ...'>"
+    }
+```
+
+If `medium` or higher issues are found, launch the Writer in `MODE=targeted` with these specific findings. Re-run the consistency check after the rewrite (cap at 1 retry). If issues persist, route them into Phase 4 as pre-seeded findings (write the JSON into `patent-disclosures/<slug>/qc-rounds/round-1/preseed_consistency.json` and tell the Lead Attorney critic to ingest it during Round 1).
+
+Telemetry: emit a `phase_3` event after the consistency check passes:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug <slug> --phase phase_3 --event end --data '{"consistency_issues":<count>}'
+```
+
+### Step 3.5: Save Progress
 
 If beads is available:
 ```bash
@@ -499,6 +595,8 @@ ROUND=1
 mkdir -p patent-disclosures/${SLUG}/qc-rounds/round-0
 cp patent-disclosures/${SLUG}/ids.json       patent-disclosures/${SLUG}/qc-rounds/round-0/ids.json
 cp patent-disclosures/${SLUG}/disclosure.md  patent-disclosures/${SLUG}/qc-rounds/round-0/disclosure.md
+
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug ${SLUG} --phase phase_4 --event start
 ```
 
 If beads is available: `bd update <task-id> --note "QC loop started"`.
@@ -563,40 +661,80 @@ else:
     → goto Step 4.5 (Writer rewrite)
 ```
 
-### Step 4.5: Writer rewrite
+### Step 4.5: Writer rewrite (per-section parallel + consolidator)
 
-Launch the Writer agent (single tool call):
+Rather than a single Writer rewriting the entire disclosure, launch ONE Writer per section that needs revision (in parallel), then a consolidator pass for cross-section issues. This is more robust (one Writer error doesn't poison the whole rewrite) and faster (parallelism).
+
+**Step 4.5a — Group findings by section.** Build `sections_needing_revision = {section_id: [issues]}` from the consolidated findings. Cross-section issues go to a separate bucket for the consolidator.
+
+**Step 4.5b — Launch parallel section-patch Writers.** For each section in `sections_needing_revision`, in parallel via the Agent tool:
+
+```
+For each section_id with findings:
+  Agent tool with:
+    subagent_type: "general-purpose"
+    description: "QC round <ROUND>: section-patch <section_id>"
+    prompt: |
+      Read your role prompt at ${CLAUDE_SKILL_DIR}/prompts/qc/writer.md.
+      Read the IDS schema at ${CLAUDE_SKILL_DIR}/ids-schema.json.
+      Read the diagram guidelines at ${CLAUDE_SKILL_DIR}/prompts/diagram-guidelines.md.
+
+      MODE=section_patch
+      SECTION_ID=<section_id>
+      ROUND=<ROUND>
+      Codebase: <CODEBASE_ROOT>
+
+      Current section answer + diagrams: read from patent-disclosures/<SLUG>/ids.json
+      Findings for THIS section only: <inline JSON of grouped findings>
+
+      Output a single JSON object per the section_patch schema in writer.md.
+      Save to: patent-disclosures/<SLUG>/qc-rounds/round-<ROUND>/section-patches/<section_id>.json
+```
+
+Each section-patch Writer touches only its section. Token cost is dramatically lower than the monolithic Writer because each call sees only one section's content + that section's findings.
+
+**Step 4.5c — Apply section patches to IDS.** After all parallel Writers return, the orchestrator (this skill) reads each `<section_id>.json` patch and applies it:
+
+```bash
+mkdir -p patent-disclosures/${SLUG}/qc-rounds/round-${ROUND}/writer-output
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/apply-section-patches.py \
+    --ids patent-disclosures/${SLUG}/ids.json \
+    --patches-dir patent-disclosures/${SLUG}/qc-rounds/round-${ROUND}/section-patches \
+    --output-ids patent-disclosures/${SLUG}/qc-rounds/round-${ROUND}/writer-output/ids.json
+```
+
+If `scripts/apply-section-patches.py` is unavailable, do this inline: load the IDS, replace each section's `answer` and `diagrams` from the patch, write the new IDS.
+
+**Step 4.5d — Regenerate disclosure.md from updated IDS.** Use the disclosure template + updated IDS section answers in canonical order. Save to `qc-rounds/round-${ROUND}/writer-output/disclosure.md`.
+
+**Step 4.5e — Consolidator pass for cross-section issues.** If there are any `cross_section_issues` from the round's findings OR any `cross_section_dependency` deferrals from the section-patch Writers, launch a single Consolidator:
 
 ```
 Agent tool with:
   subagent_type: "general-purpose"
-  description: "QC round <ROUND>: writer rewrite"
+  description: "QC round <ROUND>: consolidator"
   prompt: |
     Read your role prompt at ${CLAUDE_SKILL_DIR}/prompts/qc/writer.md.
-    Read the IDS schema at ${CLAUDE_SKILL_DIR}/ids-schema.json.
-    Read the diagram guidelines at ${CLAUDE_SKILL_DIR}/prompts/diagram-guidelines.md.
-
+    MODE=consolidator
     Inputs:
-      IDS:           patent-disclosures/<SLUG>/ids.json
-      Disclosure:    patent-disclosures/<SLUG>/disclosure.md
-      Findings dir:  patent-disclosures/<SLUG>/qc-rounds/round-<ROUND>/
-      Codebase:      <CODEBASE_ROOT>
-      Round:         <ROUND>
+      IDS:        <writer-output/ids.json>
+      Disclosure: <writer-output/disclosure.md>
+      Cross-section issues: <inline JSON list>
 
-    Write outputs to: patent-disclosures/<SLUG>/qc-rounds/round-<ROUND>/writer-output/
-      - ids.json
-      - disclosure.md
-      - changelog.json
-
-    Apply your rewrite rules from writer.md. Preserve novelty signal. Address every critical and high finding. Generate missing diagrams using the auditor's suggested_action skeletons.
+    Address ONLY the cross-section issues. Make the smallest edits across sections needed for consistency. Output the same three files (ids.json, disclosure.md, changelog.json) overwriting writer-output/.
 ```
 
-After the Writer returns, **promote** its output to be the working artifacts for the next round:
+If there are no cross-section issues, skip the consolidator and write a minimal `changelog.json` directly from the section patches.
+
+**Step 4.5f — Promote to working artifacts and increment round:**
 
 ```bash
 WO=patent-disclosures/${SLUG}/qc-rounds/round-${ROUND}/writer-output
 cp "${WO}/ids.json"       patent-disclosures/${SLUG}/ids.json
 cp "${WO}/disclosure.md"  patent-disclosures/${SLUG}/disclosure.md
+
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug ${SLUG} --phase qc_round --event end \
+     --data "{\"round\":${ROUND},\"sections_revised\":<count>,\"cross_section_pass\":<bool>}"
 ```
 
 Increment ROUND. Goto Step 4.2.
@@ -638,6 +776,12 @@ Update `ids.json`'s `qc_assessment` field with the final per-agent verdicts and 
 Update `.state.json`: `last_phase_completed: "phase_4"`.
 
 If beads: `bd update <task-id> --note "QC complete: <N> rounds, outcome=<publish|publish_with_caveats|hold>, <X> findings addressed"`.
+
+Emit phase_4 telemetry:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug ${SLUG} --phase phase_4 --event end \
+     --data "{\"rounds\":${ROUND},\"outcome\":\"<outcome>\",\"findings_addressed\":<X>}"
+```
 
 Tell the user briefly (one paragraph max):
 
@@ -762,6 +906,12 @@ Reproducible artifacts in patent-disclosures/<slug>/:
 ```
 
 Do not describe the skill as "complete" for this invention until the Google Doc URL has been generated and presented to the user.
+
+Emit phase_5 + run-end telemetry:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug <slug> --phase phase_5 --event end \
+     --data "{\"gdoc_url\":\"<URL>\",\"diagrams_rendered\":<N>}"
+```
 
 ### Step 5.5: Close Task & Offer Next
 

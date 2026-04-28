@@ -73,13 +73,14 @@ Or describe what you want naturally:
 > Find novel ideas in https://github.com/org/repo
 ```
 
-### Three Modes
+### Four Modes
 
 | Mode | When to Use | What It Does |
 |------|-------------|-------------|
 | **Full Discovery** | You don't know what's patentable | Explores entire codebase, surfaces candidates, generates full disclosures |
 | **Targeted Analysis** | You know which code to patent | Point to specific files/functions, skip exploration |
 | **Quick Triage** | You want a fast assessment | 1-page brief per candidate — pursue/skip/needs-more-info |
+| **QC-Only** | You have an existing disclosure that needs cleanup | Re-runs the QC team on an existing local disclosure or Google Doc URL — skips Phase 1–3, republishes as `[QC v…]` |
 
 ### Workflow (Full Discovery)
 
@@ -236,8 +237,27 @@ skills/patent-disclosure/
     └── disclosure-template.md
 hooks/                       # Session persistence hooks
 scripts/
-└── setup.sh                 # Optional setup (installs beads)
-docs/                        # Reference documents
+├── setup.sh                       # Required setup (gogcli + OAuth + mermaid-cli)
+├── render-and-export.sh           # Render Mermaid → PNG + publish via gogcli
+├── export-to-gdocs.sh             # Fallback publish (no rendering)
+├── disclosure-validate.sh         # Structural validator (Phase 3 fail-fast + smoke test)
+├── qc-validate-mermaid.sh         # Extract + validate Mermaid blocks under mmdc
+├── qc-trail.sh                    # Build qc-trail.md from qc-rounds/
+├── qc-rerun.sh                    # QC-Only entry point (local dir OR Google Doc URL)
+├── apply-section-patches.py       # Merge per-section Writer patches into IDS
+└── log-run.sh                     # Telemetry → ~/.cache/patent-disclosure/runs.jsonl
+tests/
+├── fixtures/{good,bad}/           # Smoke-test fixtures
+└── run-smoke.sh                   # Regression test before each release
+docs/                              # Reference documents
+```
+
+### Telemetry
+
+Each phase boundary writes a JSONL entry to `~/.cache/patent-disclosure/runs.jsonl`. Each line has `ts`, `version`, `slug`, `phase`, `event`, plus optional `tokens`, `duration_ms`, and a free-form `data` object. Inspect with:
+
+```bash
+jq -c '.' ~/.cache/patent-disclosure/runs.jsonl | tail
 ```
 
 ## License

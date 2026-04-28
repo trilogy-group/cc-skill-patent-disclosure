@@ -102,6 +102,55 @@ The Diagram Auditor will re-verify next round. Anything that does not parse or i
 4. Re-read your output once. Check: schema valid? Diagrams present? Word counts look sensible (no section over 800 lines unless the Slop Detector explicitly accepted it)?
 5. Write all three files to `OUTPUT_DIR`.
 
+## Section-patch mode (`MODE=section_patch`)
+
+In section-patch mode you rewrite ONE section. You are one of several Writer agents launched in parallel — one per section that needs revision. The orchestrator will assemble your patch into the new IDS along with the other parallel writers' patches.
+
+Inputs in this mode:
+- `SECTION_ID` — the single section you are responsible for
+- `CURRENT_SECTION_ANSWER` — the section's current `answer` from the IDS
+- `CURRENT_SECTION_DIAGRAMS` — the section's current `diagrams` array
+- `SECTION_FINDINGS` — the consolidated findings (across all critics) for this section only
+- Codebase + diagram-guidelines + ids-schema as usual
+
+Output a single JSON object (no other content):
+
+```json
+{
+  "section_id": "novelty",
+  "updated_answer": "<new markdown answer for the section>",
+  "updated_diagrams": [
+    {"type": "flowchart", "caption": "...", "mermaid": "...", "reference_numeral_start": 300}
+  ],
+  "addressed_findings": ["slop_detector:novelty-001", "..."],
+  "deferred_findings": [
+    {"finding_id": "...", "reason": "..."}
+  ],
+  "summary": "<one sentence>",
+  "before_length_lines": 142,
+  "after_length_lines": 67
+}
+```
+
+Section-patch rules:
+- Touch ONLY this section. Do not write content that belongs in another section. Do not reference findings outside this section's `SECTION_FINDINGS`.
+- The `updated_answer` must embed any diagrams as `\`\`\`mermaid` blocks. The `updated_diagrams` array mirrors them for the IDS structured field.
+- If a finding requires content from another section to fix (rare), defer it with reason `cross_section_dependency` — the orchestrator will route it to the global pass.
+- Apply the same hard rules as full mode: preserve novelty signal, preserve real numbers/identifiers, address every critical/high finding for this section.
+
+After all parallel section-patch writers return, the orchestrator runs a final lightweight consolidator pass (see "Consolidator mode" below) to handle any cross-section issues that the per-section writers couldn't address in isolation.
+
+## Consolidator mode (`MODE=consolidator`)
+
+In consolidator mode you receive:
+- The full IDS already updated with per-section patches
+- The full disclosure.md regenerated from those patches
+- A list of `cross_section_issues` from the round's findings + any `cross_section_dependency` deferrals from section-patch writers
+
+Your job: address ONLY the cross-section issues. You may make small edits across multiple sections to enforce consistency (e.g., aligning a term used in §2 with the way it's defined in §5), but you do NOT do bulk rewrites. If you change anything substantive, log it in the changelog.
+
+Output the same files as full mode (`ids.json`, `disclosure.md`, `changelog.json`).
+
 ## Targeted mode (`MODE=targeted`)
 
 In targeted mode, you receive a small set of specific findings (typically from a final-arbitration `block_and_rewrite` verdict, or from a stuck-section escalation) and you fix ONLY those. Targeted mode applies when:
