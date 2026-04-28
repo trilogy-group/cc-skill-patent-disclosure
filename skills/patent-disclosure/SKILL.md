@@ -435,7 +435,26 @@ Save to: `patent-disclosures/<invention-slug>/ids.json`
 
 Include all diagrams in the `diagrams` array for each section, and all file references in `code_references`.
 
-### Step 3.3: Save Progress
+### Step 3.3: Diagram presence check (fail-fast before Phase 4)
+
+After all sections are generated and assembled into the working `disclosure.md`, run a hard diagram-presence check. The four diagram-mandating sections (`what_and_how`, `data_structures`, `implementation`, `case_studies`) must contain Mermaid blocks of the right types. The Phase 4 QC team can add missing diagrams, but it is far cheaper to catch them here.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/qc-validate-mermaid.sh patent-disclosures/<slug>/disclosure.md
+```
+
+The script extracts every Mermaid block, validates each with `mmdc`, and writes a summary JSON. Use the count + the IDS `diagrams` arrays to verify:
+
+- `what_and_how`: ≥3 diagrams (architecture, flowchart, sequence)
+- `data_structures`: ≥1 erDiagram or classDiagram
+- `implementation`: ≥1 component-interaction diagram (graph)
+- `case_studies`: ≥1 walkthrough diagram (recommended; warn if missing)
+
+Also check each section's text for the sentinel `DIAGRAM_BLOCKED: <type> — <reason>` — if a section reports a blocked diagram, the section subagent could not construct one. Surface this to the user with the reason and ask whether to proceed (the QC team can attempt to generate one, or the user may have additional context to provide).
+
+If any required diagram is missing AND no `DIAGRAM_BLOCKED` sentinel was emitted, re-launch the affected section's generator with the section-specific prompt (which already mandates the diagram). Do NOT advance to Phase 4 with known-missing required diagrams.
+
+### Step 3.4: Save Progress
 
 If beads is available:
 ```bash
@@ -510,30 +529,16 @@ After all six return, verify each `<agent>.json` is parseable JSON and conforms 
 
 ### Step 4.3: Mechanized diagram validation
 
-Independent of the critics, validate every Mermaid block in the current `disclosure.md` with `mmdc`. Append a synthetic `diagram_auditor` finding for any block that fails to render. This prevents the loop from terminating with broken diagrams even if the auditor missed one.
+Independent of the critics, validate every Mermaid block in the current `disclosure.md`. Append a synthetic `diagram_auditor` finding for any block that fails to render — this prevents the loop from terminating with broken diagrams even if the auditor missed one.
 
 ```bash
-DISCLOSURE=patent-disclosures/${SLUG}/disclosure.md
 ROUND_DIR=patent-disclosures/${SLUG}/qc-rounds/round-${ROUND}
-mkdir -p ${ROUND_DIR}/mermaid-check
-
-awk '
-  /^```mermaid$/ { in_block=1; idx++; out=sprintf("'"${ROUND_DIR}"'/mermaid-check/block_%02d.mmd", idx); next }
-  /^```$/        { if (in_block) { in_block=0 }; next }
-  in_block       { print > out }
-' "${DISCLOSURE}"
-
-FAILED=()
-for f in ${ROUND_DIR}/mermaid-check/block_*.mmd; do
-  [ -f "$f" ] || continue
-  if ! mmdc -i "$f" -o "${f%.mmd}.svg" --quiet 2>/dev/null; then
-    FAILED+=("$(basename "$f")")
-  fi
-done
-echo "${FAILED[@]}" > ${ROUND_DIR}/mermaid-failures.txt
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/qc-validate-mermaid.sh \
+     patent-disclosures/${SLUG}/disclosure.md \
+     ${ROUND_DIR}/mermaid-check
 ```
 
-If `mmdc` is unavailable, skip mechanized validation and rely on the Diagram Auditor.
+The script writes `summary.json` (`{"total":N,"passed":M,"failed":K}`) and `failures.txt` (names of blocks that failed). Read both. For each failed block, append a synthetic finding to a derived `diagram_auditor.json` under `${ROUND_DIR}/mermaid-synthetic.json` so the orchestrator counts it in the consolidation step. If `mmdc` is unavailable, skip mechanized validation and rely solely on the Diagram Auditor.
 
 ### Step 4.4: Consolidate findings & decide
 
@@ -616,46 +621,15 @@ Launch the Lead Attorney with `MODE=arbitration` and inputs pointing at all roun
 
 ### Step 4.7: Build the QC trail
 
-Generate `patent-disclosures/<SLUG>/qc-trail.md` summarizing the loop. Required sections:
+Generate `patent-disclosures/<SLUG>/qc-trail.md` by calling the helper script:
 
-```markdown
-# QC Trail — <Invention Title>
-
-**Rounds run:** <N> of <qc_max_rounds>
-**Final outcome:** publish | publish_with_caveats | hold
-**Total findings:** <count> raised, <count> addressed, <count> deferred
-
-## Per-round summary
-
-| Round | Critical | High | Medium | Low | Sections revised | Diagrams added/modified |
-|---|---|---|---|---|---|---|
-| 1 | … | … | … | … | … | … |
-| 2 | … | … | … | … | … | … |
-| 3 | … | … | … | … | … | … |
-
-## Final per-agent verdicts
-
-| Agent | overall_verdict | Notable comments |
-|---|---|---|
-| lead_attorney | approve | … |
-| claims_specialist | approve | … |
-| technical_reviewer | approve | … |
-| slop_detector | approve | … |
-| diagram_auditor | approve | … |
-| skeptical_examiner | approve_with_concerns | <link to caveats> |
-
-## Section change log
-
-(One block per section that was modified, listing addressed_findings and the change summary.)
-
-## Outstanding concerns
-
-(From `accept_with_caveats` and `hold` arbitrations. Empty if none.)
-
-## Reproducibility
-
-Raw findings and intermediate artifacts: `patent-disclosures/<SLUG>/qc-rounds/round-<N>/`.
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/qc-trail.sh \
+     patent-disclosures/<SLUG> \
+     --outcome <publish|publish_with_caveats|hold>
 ```
+
+(The `--gdoc-url` and `--original-url` flags are populated by Phase 5 after publication and the trail is updated then.) The script reads every round's per-agent JSON + Writer changelog and produces a single Markdown summary with: rounds run, severity histogram per round, final per-agent verdicts, and reproducibility pointers. If the user's case requires additional narrative (e.g. arbitration caveats), append it to the file after the script runs.
 
 ### Step 4.8: Save state and report
 

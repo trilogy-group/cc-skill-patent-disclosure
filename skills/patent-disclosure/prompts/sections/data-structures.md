@@ -3,6 +3,14 @@
 ## Question
 What are the core data structures used in this invention?
 
+## Required diagrams (HARD REQUIREMENT — section is invalid without this)
+
+This section MUST contain at least one **Entity-Relationship diagram** (`erDiagram`) showing the relationships between the core data structures. Every entity referenced in the section's prose must appear in the ER diagram, and every cardinality (1:1, 1:N, N:M) must be labeled. Sections delivered without an ER diagram are rejected by the Phase 3 diagram-presence check.
+
+If the data model genuinely does not have meaningful relationships (e.g., a single flat record), produce a `classDiagram` instead showing the field structure with types — but the diagram is still required.
+
+If you cannot construct an ER or class diagram from the available code/spec, do NOT silently omit it. Return your content followed by: `DIAGRAM_BLOCKED: er — <why>`.
+
 ## Prompt
 
 Document all significant data structures that the invention uses, creates, or transforms. Data structures are often at the heart of what makes an invention work — they determine what information is available and how efficiently it can be processed.

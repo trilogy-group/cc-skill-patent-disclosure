@@ -3,6 +3,12 @@
 ## Question
 How does this invention work in practice? Show it in action with real-world scenarios.
 
+## Required diagrams (STRONGLY RECOMMENDED)
+
+For EACH non-trivial case study, include a walkthrough diagram (`flowchart TD` or `sequenceDiagram`) tracing the invention's operation through the case. The walkthrough should show concrete data values flowing through the steps where possible.
+
+If a case study has trivially obvious flow (e.g., a single API call with the canonical happy path), a walkthrough diagram may be omitted — but at least one diagram across the case studies section is expected. The Phase 3 check warns rather than rejects when diagrams are missing here, but the QC Diagram Auditor will flag it.
+
 ## Prompt
 
 Provide concrete case studies that demonstrate the invention operating in real-world scenarios. These examples make abstract descriptions tangible and help patent attorneys understand the practical significance.

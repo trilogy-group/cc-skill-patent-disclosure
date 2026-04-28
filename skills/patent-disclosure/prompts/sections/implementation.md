@@ -3,6 +3,12 @@
 ## Question
 What are the specific implementation choices that make this invention work in practice?
 
+## Required diagrams (HARD REQUIREMENT — section is invalid without this)
+
+This section MUST contain a **component interaction diagram** (`graph LR` or `graph TB`) showing the runtime components and the messages/data passing between them. This is distinct from the system architecture diagram in §6 (What It Does) — that one shows static structure; this one shows runtime communication patterns (REST, queue, event, sync/async). Label every edge with the message type and direction.
+
+Sections without a component-interaction diagram are rejected by the Phase 3 diagram-presence check. If you cannot construct one from the available code/spec, return content followed by: `DIAGRAM_BLOCKED: component_interaction — <why>`.
+
 ## Prompt
 
 Provide implementation-level details that go beyond the high-level "how it works" description. This section captures the engineering knowledge that makes the difference between a concept and a working system.

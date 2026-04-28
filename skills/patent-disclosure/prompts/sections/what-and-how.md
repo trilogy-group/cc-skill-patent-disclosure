@@ -3,6 +3,16 @@
 ## Question
 What does the invention do end-to-end, and how does it achieve it technically?
 
+## Required diagrams (HARD REQUIREMENT — section is invalid without all three)
+
+This section MUST contain THREE Mermaid diagrams. Sections delivered without all three are rejected by the Phase 3 diagram-presence check and you will be re-invoked. There is no "skip diagrams" path.
+
+1. **System architecture diagram** — `graph TB` or `graph LR` showing the major components (modules, services, data stores, external systems) and the connections between them. Use patent-style numerals: `Adaptive Threshold Module 110`, `Pattern Library 106`. Highlight the novel component(s) with explicit styling: `style NodeID fill:#ff9,stroke:#333,stroke-width:2px`.
+2. **Processing pipeline flowchart** — `flowchart TD` showing the end-to-end step sequence from input to output. EVERY novel step must be highlighted with the same `fill:#ff9` style. Include a `Note` line at the inventive step. Number the steps in patent style: `Step 302`, `Step 304`, etc.
+3. **Sequence diagram** — `sequenceDiagram` showing the interaction between actors / components for the canonical end-to-end flow. Use `Note over` annotations at the inventive moment(s).
+
+If you genuinely cannot construct any one of these diagrams from the available code/spec, do NOT silently omit it. Instead, return your section content followed by a single line: `DIAGRAM_BLOCKED: <type> — <why>`. The orchestrator will route this to the user.
+
 ## Prompt
 
 This is the most important technical section of the disclosure. Describe the invention's complete operation from input to output with enough detail that a skilled engineer could reimplement it.

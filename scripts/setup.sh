@@ -89,18 +89,38 @@ if [ "${AUTHED_ACCOUNTS}" -eq 0 ]; then
 fi
 
 # --- 4. mermaid-cli (recommended) ---
+#
+# NPM/Node are commonly lazy-loaded via NVM (esp. in zsh setups), which means
+# `npm` may resolve to a shell-function stub like `_lazy_nvm npm` that does not
+# work in non-interactive shells. We unset any such function shadow first, then
+# fall back to the installed Node binary directly.
 echo ""
-if command -v mmdc &> /dev/null; then
-    echo "[OK] mermaid-cli (mmdc) available"
-else
-    echo "[INSTALLING] mermaid-cli via npm..."
-    if command -v npm &> /dev/null; then
-        npm install -g @mermaid-js/mermaid-cli || echo "[WARN] npm install failed — diagrams will appear as code blocks in the Google Doc."
-    else
-        echo "[WARN] npm not found. Install Node.js and run:"
-        echo "       npm install -g @mermaid-js/mermaid-cli"
-        echo "       Without mermaid-cli, diagrams appear as code blocks in the doc."
+unset -f node npm npx 2>/dev/null || true
+
+NPM_BIN=""
+if command -v npm &> /dev/null; then
+    NPM_BIN="$(command -v npm)"
+elif [ -d "$HOME/.nvm/versions/node" ]; then
+    # Pick the highest-numbered installed Node version
+    NODE_DIR="$(ls -1 "$HOME/.nvm/versions/node" 2>/dev/null | sort -V | tail -1)"
+    if [ -n "$NODE_DIR" ] && [ -x "$HOME/.nvm/versions/node/$NODE_DIR/bin/npm" ]; then
+        NPM_BIN="$HOME/.nvm/versions/node/$NODE_DIR/bin/npm"
+        export PATH="$HOME/.nvm/versions/node/$NODE_DIR/bin:$PATH"
     fi
+fi
+
+if command -v mmdc &> /dev/null; then
+    echo "[OK] mermaid-cli (mmdc) available at $(command -v mmdc)"
+elif [ -n "$NPM_BIN" ]; then
+    echo "[INSTALLING] mermaid-cli via $NPM_BIN..."
+    "$NPM_BIN" install -g @mermaid-js/mermaid-cli || echo "[WARN] npm install failed — diagrams will appear as code blocks in the Google Doc."
+    if command -v mmdc &> /dev/null; then
+        echo "[OK] mermaid-cli installed at $(command -v mmdc)"
+    fi
+else
+    echo "[WARN] npm not found (and no NVM-managed Node detected). Install Node.js and run:"
+    echo "       npm install -g @mermaid-js/mermaid-cli"
+    echo "       Without mermaid-cli, diagrams appear as code blocks in the doc."
 fi
 
 # --- 5. pandoc (optional, for .docx fallback) ---
