@@ -903,6 +903,8 @@ Reproducible artifacts in patent-disclosures/<slug>/:
   ids.json               (intermediate data structure)
   qc-trail.md            (multi-agent QC summary)
   qc-rounds/             (raw findings + writer outputs per round)
+
+Patents Manager (if configured): <url printed by submit-to-manager.sh>
 ```
 
 Do not describe the skill as "complete" for this invention until the Google Doc URL has been generated and presented to the user.
@@ -912,6 +914,38 @@ Emit phase_5 + run-end telemetry:
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-run.sh --slug <slug> --phase phase_5 --event end \
      --data "{\"gdoc_url\":\"<URL>\",\"diagrams_rendered\":<N>}"
 ```
+
+### Step 5.4b: Push to Patents Manager (optional, automatic when configured)
+
+If the user has configured the Patents Manager integration (env vars
+`PATENTS_API_URL` + `PATENTS_API_TOKEN`, or `~/.config/patents-manager.json`),
+the disclosure should also be registered in the manager so it shows up on
+their dashboard alongside other disclosures.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/submit-to-manager.sh \
+    patent-disclosures/<slug>/ \
+    --gdoc-url "<URL from Step 5.4>" \
+    --qc-outcome <publish|publish_with_caveats|hold>
+```
+
+The script is **idempotent on `plugin_slug`** — if the manager already has a
+row for this invention, it patches the doc URL + QC outcome; otherwise it
+creates a new row. Re-running the plugin against the same invention is safe.
+
+If credentials are not configured, the script prints a one-time message
+explaining how to set them and exits 0 (the rest of the plugin still
+works — the user just adds the disclosure manually). Set
+`PATENTS_SUBMIT_SKIP=1` to skip even when configured.
+
+After running, the script prints:
+
+```
+→ Patents Manager: https://<host>/disclosures/<id>
+```
+
+Capture that URL and surface it to the user alongside the Google Doc URL
+in Step 5.5.
 
 ### Step 5.5: Close Task & Offer Next
 

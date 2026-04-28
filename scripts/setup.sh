@@ -143,6 +143,31 @@ fi
 mkdir -p patent-disclosures
 echo "[OK] patent-disclosures/ directory ready"
 
+# --- 8. Optional: Patents Manager auto-submit ---
+echo ""
+echo "=== Patents Manager integration (optional) ==="
+CONFIG_FILE="${HOME}/.config/patents-manager.json"
+if [ -f "$CONFIG_FILE" ]; then
+    echo "[OK] ${CONFIG_FILE} already exists — auto-submission is configured."
+elif [ -n "${PATENTS_API_URL:-}" ] && [ -n "${PATENTS_API_TOKEN:-}" ]; then
+    echo "[OK] PATENTS_API_URL + PATENTS_API_TOKEN env vars are set."
+else
+    echo "When the Patents Manager web app is available, the plugin can"
+    echo "auto-register each generated disclosure on your dashboard."
+    echo ""
+    echo "To configure now (or later), get a token from <app>/settings/tokens"
+    echo "and either:"
+    echo ""
+    echo "  export PATENTS_API_URL=https://patents.alpha.school"
+    echo "  export PATENTS_API_TOKEN=pmt_..."
+    echo ""
+    echo "or save them to ${CONFIG_FILE}:"
+    echo '  {"api_url":"https://patents.alpha.school","api_token":"pmt_..."}'
+    echo ""
+    echo "Skipping auto-submission for now — the plugin still works, you'd"
+    echo "just add disclosures to the manager manually."
+fi
+
 echo ""
 echo "=== Setup Complete ==="
 echo "gogcli is installed and authorized. Every disclosure will be published to"

@@ -1,6 +1,6 @@
 {
   "name": "patent-disclosure",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Interactively discover patentable ideas in a codebase and generate high-quality patent disclosure documents",
   "author": {
     "name": "Trilogy Group",
