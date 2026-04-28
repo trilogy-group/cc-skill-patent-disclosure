@@ -171,7 +171,7 @@ Look for `patent-disclosures/.state.json` and any existing `patent-disclosures/*
 **Step 3 — Recover rich context:**
 If there is in-progress work, do NOT rely only on beads notes or state.json summaries. Read the actual artifacts:
 - Read `patent-disclosures/<slug>/ids.json` to recover all generated sections
-- Read `patent-disclosures/<slug>/qc-report.md` if it exists
+- Read `patent-disclosures/<slug>/qc-trail.md` if it exists (new multi-agent loop trail) or `qc-report.md` (legacy single-reviewer output)
 - Check which sections in the IDS have content (answer field is non-empty) vs. which are still pending
 
 Then tell the user:
@@ -446,60 +446,230 @@ Update `.state.json`: `last_phase_completed: "phase_3"`.
 
 ---
 
-## Phase 4: Quality Control & Self-Assessment
+## Phase 4: Multi-Agent QC Loop
 
-### Step 4.1: Launch QC Subagent
+A team of six specialist agents critiques the draft disclosure each round, a Writer agent consolidates their findings and rewrites, and the loop repeats until either every critic approves every section or the round budget is exhausted. The Lead Patent Attorney has final arbitration authority when the budget is hit. The user does NOT participate in this loop — it runs to convergence and reports results once. This replaces the prior single-reviewer QC step.
 
-Read the full QC prompt from `${CLAUDE_SKILL_DIR}/prompts/qc-reviewer.md`.
+### Agents
 
-Launch a dedicated QC Reviewer subagent:
+| Agent | Lane |
+|---|---|
+| `lead_attorney` | Coherence, attorney-readiness, claim/spec alignment, final arbiter |
+| `claims_specialist` | Claim drafting (102/103/101/112), claim quality, claim-to-code mapping |
+| `technical_reviewer` | Reads the actual code, verifies disclosure faithfulness, finds missed inventive mechanisms |
+| `slop_detector` | Verbosity, repetition, AI-cliché phrasing, scaffolding leaks, length |
+| `diagram_auditor` | All required diagrams present, Mermaid valid, novelty visible |
+| `skeptical_examiner` | Plays USPTO examiner; surfaces 102/103/101/112 rejection theories |
+| `writer` (not a critic) | Consolidates findings and produces revised artifacts |
 
-```
-Use Agent tool with:
-  subagent_type: "general-purpose"
-  description: "QC review patent disclosure"
-  prompt: "<QC prompt from file> + <full IDS JSON content>"
-```
+Each agent has a dedicated prompt at `${CLAUDE_SKILL_DIR}/prompts/qc/<agent>.md`. The shared output schema is in `${CLAUDE_SKILL_DIR}/prompts/qc/findings-schema.md`.
 
-The QC subagent evaluates every section against quality criteria, checks cross-section consistency, validates that diagrams are well-formed Mermaid, scores the patent committee rubric, and checks claim quality.
+### Loop control parameters
 
-### Step 4.2: Present QC Results
+- `qc_max_rounds`: default **3**. Read from `.state.json` `qc_max_rounds` if present; otherwise use 3.
+- Termination conditions (any of):
+  1. All six critics return `overall_verdict=approve` AND every section verdict is `approve`.
+  2. Round count reaches `qc_max_rounds` → enter Step 4.6 (arbitration).
+- Stuck detection: if the same `category` × `section_id` issue reappears in 2 consecutive rounds at severity `high` or `critical` despite a Writer rewrite addressing it, escalate ONLY that section to the Lead Attorney as a mid-loop arbitration request (do not abort the loop).
 
-Show the user:
+### Step 4.1: Initialize the loop
 
-1. **Per-section assessment** — gaps, clarity issues, areas needing elaboration
-2. **Patent Committee Rubric Scores** (1 = strongest, higher = weaker):
-
-```
-| Dimension              | Score       | Justification                          |
-|------------------------|-------------|----------------------------------------|
-| Technical Merit        | X (1=best)  | <why>                                  |
-| Alternatives           | X (1=best)  | <why>                                  |
-| Value to Company       | X (1=best)  | <why>                                  |
-| Infringement Detection | X (1=best)  | <why>                                  |
-```
-
-**Scale explanation to include:**
-> *Scores use the patent committee scale where 1 = strongest (e.g., significant improvement, no known alternatives, key strategic value, easy to detect infringement) and 4 = weakest (3 for Infringement Detection).*
-
-3. **Top 3 improvements** ranked by impact on patentability
-
-Ask: *"Would you like me to strengthen any sections? The biggest improvement opportunity is: <X>"*
-
-### Step 4.3: Iterate
-
-If the user wants improvements:
-- Regenerate the specific sections with targeted improvements
-- Re-run QC on the modified sections only
-- Repeat until user is satisfied
-
-Save results:
-If beads is available:
 ```bash
-bd update <task-id> --note "QC complete. Scores: TM=<x>, Alt=<x>, Val=<x>, ID=<x>"
+SLUG=<invention-slug>
+ROUND=1
+mkdir -p patent-disclosures/${SLUG}/qc-rounds/round-0
+cp patent-disclosures/${SLUG}/ids.json       patent-disclosures/${SLUG}/qc-rounds/round-0/ids.json
+cp patent-disclosures/${SLUG}/disclosure.md  patent-disclosures/${SLUG}/qc-rounds/round-0/disclosure.md
 ```
+
+If beads is available: `bd update <task-id> --note "QC loop started"`.
+
+### Step 4.2: Run a critic round (parallel)
+
+Launch ALL SIX critics in parallel via the Agent tool — one tool-call block, six tool uses — so they run concurrently:
+
+```
+For each agent in [lead_attorney, claims_specialist, technical_reviewer, slop_detector, diagram_auditor, skeptical_examiner]:
+  Agent tool with:
+    subagent_type: "general-purpose"
+    description: "QC round <ROUND>: <agent>"
+    prompt: |
+      Read your role prompt at ${CLAUDE_SKILL_DIR}/prompts/qc/<agent>.md.
+      Read the findings schema at ${CLAUDE_SKILL_DIR}/prompts/qc/findings-schema.md.
+      You are reviewing:
+        IDS:        patent-disclosures/<SLUG>/ids.json
+        Disclosure: patent-disclosures/<SLUG>/disclosure.md
+        Codebase:   <CODEBASE_ROOT>
+        Round:      <ROUND>
+        Mode:       review
+      Return ONLY the JSON findings object — no prose, no markdown fences.
+      Save your output to: patent-disclosures/<SLUG>/qc-rounds/round-<ROUND>/<agent>.json
+```
+
+After all six return, verify each `<agent>.json` is parseable JSON and conforms to the schema. If a critic returned malformed JSON, re-launch only that critic with a reminder to output valid JSON only.
+
+### Step 4.3: Mechanized diagram validation
+
+Independent of the critics, validate every Mermaid block in the current `disclosure.md` with `mmdc`. Append a synthetic `diagram_auditor` finding for any block that fails to render. This prevents the loop from terminating with broken diagrams even if the auditor missed one.
+
+```bash
+DISCLOSURE=patent-disclosures/${SLUG}/disclosure.md
+ROUND_DIR=patent-disclosures/${SLUG}/qc-rounds/round-${ROUND}
+mkdir -p ${ROUND_DIR}/mermaid-check
+
+awk '
+  /^```mermaid$/ { in_block=1; idx++; out=sprintf("'"${ROUND_DIR}"'/mermaid-check/block_%02d.mmd", idx); next }
+  /^```$/        { if (in_block) { in_block=0 }; next }
+  in_block       { print > out }
+' "${DISCLOSURE}"
+
+FAILED=()
+for f in ${ROUND_DIR}/mermaid-check/block_*.mmd; do
+  [ -f "$f" ] || continue
+  if ! mmdc -i "$f" -o "${f%.mmd}.svg" --quiet 2>/dev/null; then
+    FAILED+=("$(basename "$f")")
+  fi
+done
+echo "${FAILED[@]}" > ${ROUND_DIR}/mermaid-failures.txt
+```
+
+If `mmdc` is unavailable, skip mechanized validation and rely on the Diagram Auditor.
+
+### Step 4.4: Consolidate findings & decide
+
+Read all six `<agent>.json` files for this round. Compute:
+
+- `per_section_verdict[section_id]` = `revise` if ANY agent said `revise`, else `approve`
+- `total_critical = count(severity=critical)`, `total_high = count(severity=high)`
+- `overall_verdict_per_agent[agent]`
+- `stuck_sections` = sections where the same `(agent, category)` appears in this round AND the previous round at severity ≥ `high`
+
+Decision tree:
+
+```
+if all agents approve AND all sections approve AND mermaid-failures empty:
+    → goto Step 4.7 (loop done, success)
+elif ROUND >= qc_max_rounds:
+    → goto Step 4.6 (final arbitration)
+elif stuck_sections is non-empty:
+    → goto Step 4.5b (mid-loop targeted arbitration for stuck sections)
+    → then continue to Step 4.5 (full Writer rewrite)
+else:
+    → goto Step 4.5 (Writer rewrite)
+```
+
+### Step 4.5: Writer rewrite
+
+Launch the Writer agent (single tool call):
+
+```
+Agent tool with:
+  subagent_type: "general-purpose"
+  description: "QC round <ROUND>: writer rewrite"
+  prompt: |
+    Read your role prompt at ${CLAUDE_SKILL_DIR}/prompts/qc/writer.md.
+    Read the IDS schema at ${CLAUDE_SKILL_DIR}/ids-schema.json.
+    Read the diagram guidelines at ${CLAUDE_SKILL_DIR}/prompts/diagram-guidelines.md.
+
+    Inputs:
+      IDS:           patent-disclosures/<SLUG>/ids.json
+      Disclosure:    patent-disclosures/<SLUG>/disclosure.md
+      Findings dir:  patent-disclosures/<SLUG>/qc-rounds/round-<ROUND>/
+      Codebase:      <CODEBASE_ROOT>
+      Round:         <ROUND>
+
+    Write outputs to: patent-disclosures/<SLUG>/qc-rounds/round-<ROUND>/writer-output/
+      - ids.json
+      - disclosure.md
+      - changelog.json
+
+    Apply your rewrite rules from writer.md. Preserve novelty signal. Address every critical and high finding. Generate missing diagrams using the auditor's suggested_action skeletons.
+```
+
+After the Writer returns, **promote** its output to be the working artifacts for the next round:
+
+```bash
+WO=patent-disclosures/${SLUG}/qc-rounds/round-${ROUND}/writer-output
+cp "${WO}/ids.json"       patent-disclosures/${SLUG}/ids.json
+cp "${WO}/disclosure.md"  patent-disclosures/${SLUG}/disclosure.md
+```
+
+Increment ROUND. Goto Step 4.2.
+
+### Step 4.5b: Mid-loop targeted arbitration (stuck-section path)
+
+For each `stuck_section`, launch the Lead Attorney with `MODE=arbitration_partial` for ONLY that section. The Lead returns either:
+- `accept_as_is` — the residual finding is overruled; remove it from consideration this round forward.
+- `force_writer_directive: "<text>"` — pass that directive into the Writer's prompt as a section-specific override.
+
+Save Lead's response to `qc-rounds/round-<ROUND>/lead_arbitration_partial.json`. Then continue to Step 4.5.
+
+### Step 4.6: Final arbitration (max-rounds path)
+
+Launch the Lead Attorney with `MODE=arbitration` and inputs pointing at all rounds' findings + writer changelogs. The Lead returns the arbitration JSON described in `lead-attorney.md`. For each section:
+
+- `accept_as_is` — promote current artifact, no change.
+- `accept_with_caveats` — promote current artifact; record `caveats_for_qc_trail` in the trail.
+- `block_and_rewrite` — launch the Writer ONE more time with the Lead's `writer_directive`, scoped to that section only. Promote the output. No more critic rounds.
+
+`overall_publication_decision` is recorded in the trail. `hold` means the disclosure ships with a prominent warning at the top of `disclosure.md` and a separate stop-the-line note in `qc-trail.md`.
+
+### Step 4.7: Build the QC trail
+
+Generate `patent-disclosures/<SLUG>/qc-trail.md` summarizing the loop. Required sections:
+
+```markdown
+# QC Trail — <Invention Title>
+
+**Rounds run:** <N> of <qc_max_rounds>
+**Final outcome:** publish | publish_with_caveats | hold
+**Total findings:** <count> raised, <count> addressed, <count> deferred
+
+## Per-round summary
+
+| Round | Critical | High | Medium | Low | Sections revised | Diagrams added/modified |
+|---|---|---|---|---|---|---|
+| 1 | … | … | … | … | … | … |
+| 2 | … | … | … | … | … | … |
+| 3 | … | … | … | … | … | … |
+
+## Final per-agent verdicts
+
+| Agent | overall_verdict | Notable comments |
+|---|---|---|
+| lead_attorney | approve | … |
+| claims_specialist | approve | … |
+| technical_reviewer | approve | … |
+| slop_detector | approve | … |
+| diagram_auditor | approve | … |
+| skeptical_examiner | approve_with_concerns | <link to caveats> |
+
+## Section change log
+
+(One block per section that was modified, listing addressed_findings and the change summary.)
+
+## Outstanding concerns
+
+(From `accept_with_caveats` and `hold` arbitrations. Empty if none.)
+
+## Reproducibility
+
+Raw findings and intermediate artifacts: `patent-disclosures/<SLUG>/qc-rounds/round-<N>/`.
+```
+
+### Step 4.8: Save state and report
+
+Update `ids.json`'s `qc_assessment` field with the final per-agent verdicts and aggregate severity counts.
 
 Update `.state.json`: `last_phase_completed: "phase_4"`.
+
+If beads: `bd update <task-id> --note "QC complete: <N> rounds, outcome=<publish|publish_with_caveats|hold>, <X> findings addressed"`.
+
+Tell the user briefly (one paragraph max):
+
+> *QC complete. <N> rounds ran. <X> findings addressed across <Y> sections; <Z> diagrams added or fixed. Final outcome: <publish/publish_with_caveats/hold>. Trail: `patent-disclosures/<SLUG>/qc-trail.md`. Proceeding to publish.*
+
+If `hold`: do NOT auto-proceed to Phase 5. Surface the blocking concerns and ask the user how to proceed.
 
 ---
 
@@ -557,9 +727,9 @@ Create a traceability appendix that maps each claim element to its implementatio
 
 Append this to `disclosure.md`.
 
-### Step 5.3: Save QC Report
+### Step 5.3: QC Trail
 
-Save the QC assessment to: `patent-disclosures/<invention-slug>/qc-report.md`
+The QC trail (`patent-disclosures/<invention-slug>/qc-trail.md`) was already written by Phase 4. Verify it exists. Do NOT overwrite it. If you find an older `qc-report.md` from a legacy run, leave it in place for backward compatibility.
 
 ### Step 5.4: Publish to Google Docs (mandatory)
 
@@ -613,7 +783,8 @@ Reproducible artifacts in patent-disclosures/<slug>/:
   disclosure-export.md   (intermediate — rendered PNG references)
   diagrams/              (rendered diagram PNGs)
   ids.json               (intermediate data structure)
-  qc-report.md           (QC assessment)
+  qc-trail.md            (multi-agent QC summary)
+  qc-rounds/             (raw findings + writer outputs per round)
 ```
 
 Do not describe the skill as "complete" for this invention until the Google Doc URL has been generated and presented to the user.

@@ -90,8 +90,8 @@ The skill guides you through 5 phases with explicit checkpoints at each transiti
 | **1. Explore** | Analyzes codebase, auto-detects inventors from git, surfaces candidates, you triage |
 | **2. Deep-Dive** | Targeted code analysis + 3-round conversational Q&A to capture the inventive insight |
 | **3. Generate** | Produces 12 disclosure sections in batches with your review at each checkpoint |
-| **4. QC** | Self-assesses against patent committee rubric, validates diagrams, iterates on weak sections |
-| **5. Output** | Saves disclosure.md + ids.json + qc-report.md with claim-to-code mapping |
+| **4. QC** | Six-agent QC team (lead attorney, claims, technical reviewer, slop detector, diagram auditor, examiner) critiques in parallel; a Writer rewrites; loop until all six approve or `qc_max_rounds` (default 3) — Lead Attorney arbitrates if budget hits |
+| **5. Output** | Publishes a Google Doc; saves intermediate artifacts (disclosure.md, ids.json, qc-trail.md, qc-rounds/) for reproducibility |
 
 ### Incremental Sessions
 
@@ -113,7 +113,8 @@ patent-disclosures/<invention-slug>/   (intermediate artifacts)
 ├── disclosure-export.md   # Version with rendered PNG references
 ├── diagrams/              # Rendered diagram PNGs
 ├── ids.json               # Intermediate Data Structure (structured JSON)
-└── qc-report.md           # Quality assessment with rubric scores
+├── qc-trail.md            # Multi-agent QC summary
+└── qc-rounds/             # Per-round raw findings + writer outputs (auditable trail)
 ```
 
 ### Disclosure Sections
@@ -207,8 +208,17 @@ skills/patent-disclosure/
 ├── prompts/
 │   ├── codebase-exploration.md
 │   ├── diagram-guidelines.md
-│   ├── qc-reviewer.md
-│   └── sections/            # Per-section generation prompts (13 files)
+│   ├── qc-reviewer.md           # Legacy single-reviewer prompt (deprecated, kept for back-compat)
+│   ├── qc/                      # Multi-agent QC team (v1.3+)
+│   │   ├── findings-schema.md
+│   │   ├── lead-attorney.md
+│   │   ├── claims-specialist.md
+│   │   ├── technical-reviewer.md
+│   │   ├── slop-detector.md
+│   │   ├── diagram-auditor.md
+│   │   ├── skeptical-examiner.md
+│   │   └── writer.md
+│   └── sections/                # Per-section generation prompts (13 files)
 │       ├── executive-summary.md
 │       ├── novelty.md
 │       ├── context.md
