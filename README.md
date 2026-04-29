@@ -22,6 +22,34 @@ claude plugin marketplace add trilogy-group/cc-skill-patent-disclosure
 claude plugin install patent-disclosure@trilogy-patent-tools
 ```
 
+> **Note on git transport.** `claude plugin install` clones the plugin repo over **SSH** (`git@github.com:…`). If you already use SSH for GitHub, it just works. If you prefer HTTPS — or hit `Permission denied (publickey)` — pick one of the two setups below.
+
+### Git access — pick one (one-time)
+
+**SSH (recommended if you already use it elsewhere)**
+
+```bash
+# Generate a key if you don't have one
+ssh-keygen -t ed25519 -C "you@company.com"
+eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519
+
+# Add the public key to GitHub: https://github.com/settings/keys
+pbcopy < ~/.ssh/id_ed25519.pub
+
+# Verify
+ssh -T git@github.com   # expect: "Hi <you>! You've successfully authenticated..."
+```
+
+**HTTPS (no SSH key required)**
+
+```bash
+git config --global url."https://github.com/".insteadOf "git@github.com:"
+```
+
+This single rewrite tells git to clone over HTTPS whenever something asks for `git@github.com:…`, so the plugin install works without any SSH setup. Safe to keep globally.
+
+Then re-run `claude plugin install patent-disclosure@trilogy-patent-tools`.
+
 ### Required one-time setup
 
 Every disclosure is published to **Google Docs** — there is no local-only mode. You must install and authorize [`gogcli`](https://github.com/tmc/gogcli) before running the skill. Use the setup script, which walks you through install + OAuth sign-in end-to-end:
