@@ -28,3 +28,6 @@ node_modules/
 
 # Claude Code runtime state
 .claude/
+
+# Supabase CLI transient state
+supabase/.temp/

@@ -1,0 +1,35 @@
+# scout/watchlist.yaml
+#
+# The repo-scout agent runs ONLY on the repos listed below. There is no
+# auto-discovery of org repos — adding a repo to scout's footprint is a PR.
+#
+# To add a repo:
+#   1. Append a `- name: ...` block under `repos:`.
+#   2. Set business_unit (CNU / Andy's Group / Samy's Group / Non Education).
+#   3. Pick a schedule: `weekly` (default), `monthly`, or `manual`.
+#   4. Optionally raise confidence_min for noisy codebases.
+#   5. Open a PR.
+#
+# State note: scout reads/writes ONLY through Patents Manager via PAT.
+# It is idempotent on `<repo-name>-<candidate-slug>` (sent as plugin_slug),
+# so re-running on a stable repo doesn't create duplicates.
+
+version: 1
+
+defaults:
+  business_unit: CNU
+  schedule: weekly       # weekly | monthly | manual
+  confidence_min: medium # low | medium | high (filters scout output)
+
+repos:
+  # Example entry (disabled until ready). Copy this block for each new repo.
+  - name: example-repo
+    git: git@github.com:trilogy-group/example.git
+    business_unit: CNU
+    project: Example Project
+    enabled: false       # flip to true when you want scout watching this repo
+    schedule: weekly
+    confidence_min: medium
+    notes: |
+      One-line description of why this repo is on the list — what kinds
+      of inventions you expect scout to surface here.

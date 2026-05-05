@@ -1,0 +1,90 @@
+name: repo-scout
+
+# Daily cron at 06:00 UTC. The runner itself decides which repos in
+# scout/watchlist.yaml are actually due based on each repo's `schedule`
+# field (weekly/monthly/manual). One workflow run scans all due repos.
+#
+# Also exposed as workflow_dispatch for ad-hoc runs (e.g. testing a
+# newly-added repo without waiting for the cron).
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   PATENTS_API_TOKEN  — disclosures:write PAT from patents.ti.trilogy.com
+#   ANTHROPIC_API_KEY  — for `claude -p` headless mode
+#   SCOUT_DEPLOY_KEY   — (optional) SSH private key with read access to the
+#                        listed private repos. Skip if all repos are public.
+#
+# Optional repository variable:
+#   PATENTS_API_URL    — defaults to https://patents.ti.trilogy.com
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      only_repo:
+        description: "Scan ONLY this repo by name (from watchlist.yaml)"
+        required: false
+        type: string
+      force:
+        description: "Bypass schedule + already-scanned-SHA checks"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: repo-scout
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan watchlist
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install scout deps
+        run: npm ci --include=dev
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Configure SSH for private repo cloning
+        if: env.SCOUT_DEPLOY_KEY != ''
+        env:
+          SCOUT_DEPLOY_KEY: ${{ secrets.SCOUT_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SCOUT_DEPLOY_KEY" > ~/.ssh/scout_key
+          chmod 600 ~/.ssh/scout_key
+          cat >> ~/.ssh/config <<'EOF'
+          Host github.com
+            HostName github.com
+            User git
+            IdentityFile ~/.ssh/scout_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking accept-new
+          EOF
+
+      - name: Run scout
+        env:
+          PATENTS_API_URL: ${{ vars.PATENTS_API_URL || 'https://patents.ti.trilogy.com' }}
+          PATENTS_API_TOKEN: ${{ secrets.PATENTS_API_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ONLY_REPO: ${{ inputs.only_repo }}
+          FORCE: ${{ inputs.force == true && '1' || '' }}
+        run: |
+          if [ -z "$PATENTS_API_TOKEN" ]; then
+            echo "::error::PATENTS_API_TOKEN secret is not set."
+            exit 64
+          fi
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not set."
+            exit 64
+          fi
+          npm run scout

@@ -1,0 +1,17 @@
+{
+  "name": "patent-disclosure-tools",
+  "version": "1.5.0",
+  "private": true,
+  "description": "Tooling that runs alongside the patent-disclosure Claude Code plugin (repo-scout, etc.)",
+  "type": "module",
+  "scripts": {
+    "scout": "tsx scout/runner.ts"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.5",
+    "js-yaml": "^4.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "lib": ["ES2022"]
+  },
+  "include": ["scout/**/*.ts"],
+  "exclude": ["node_modules", ".patent-disclosure-workspace", "patent-disclosures"]
+}
