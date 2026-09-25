@@ -158,11 +158,11 @@ else
     echo "To configure now (or later), get a token from <app>/settings/tokens"
     echo "and either:"
     echo ""
-    echo "  export PATENTS_API_URL=https://patents.alpha.school"
+    echo "  export PATENTS_API_URL=https://patents.ti.trilogy.com"
     echo "  export PATENTS_API_TOKEN=pmt_..."
     echo ""
     echo "or save them to ${CONFIG_FILE}:"
-    echo '  {"api_url":"https://patents.alpha.school","api_token":"pmt_..."}'
+    echo '  {"api_url":"https://patents.ti.trilogy.com","api_token":"pmt_..."}'
     echo ""
     echo "Skipping auto-submission for now — the plugin still works, you'd"
     echo "just add disclosures to the manager manually."
