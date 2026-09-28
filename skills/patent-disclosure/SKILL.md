@@ -773,6 +773,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/qc-trail.sh \
 
 Update `ids.json`'s `qc_assessment` field with the final per-agent verdicts and aggregate severity counts.
 
+**Also write `qc_assessment.patent_committee_rubric`** from the `patent_committee_rubric` key the Lead
+Attorney returns on the final review round (four dimensions, each `{score, justification}`; the schema
+is in `ids-schema.json` under `qc_assessment`). These four scores are what the Phase 5 template renders
+into the Self-Assessment section, so if they are absent the published disclosure carries empty
+placeholders. If the Lead Attorney did not return them — for example the loop ended in arbitration
+without a final review round — run it once more in review mode against the final disclosure for the
+scores alone, and say so in the QC trail.
+
 Update `.state.json`: `last_phase_completed: "phase_4"`.
 
 If beads: `bd update <task-id> --note "QC complete: <N> rounds, outcome=<publish|publish_with_caveats|hold>, <X> findings addressed"`.

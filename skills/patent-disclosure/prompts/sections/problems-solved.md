@@ -14,7 +14,7 @@ Articulate the problems this invention addresses. Frame them from the perspectiv
 
 1. **Primary Problem** — State the main problem in concrete terms:
    - What specifically was failing, slow, inaccurate, costly, or impossible?
-   - Quantify where possible (e.g., "false positive rate exceeded 30%", "latency exceeded 500ms at 10K QPS")
+   - Quantify where possible (e.g., "false positive rate exceeded 30%", "latency exceeded 500ms at 10K QPS"). **Where no measurement exists, say so in the text** — "no measurement of the manual process was taken" — rather than describing the problem in a way that implies one. An admitted gap is a question the attorney can ask the inventor; an unmarked one is a sentence he will believe
    - Who experienced this problem? (engineers, end users, operations teams?)
 
 2. **Root Cause** — Why did this problem exist? What fundamental limitation in prior approaches caused it?
