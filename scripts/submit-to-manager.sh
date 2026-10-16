@@ -4,7 +4,7 @@
 #   bash scripts/submit-to-manager.sh patent-disclosures/<slug>/
 #
 # Required env (or in ~/.config/patents-manager.json):
-#   PATENTS_API_URL      e.g. https://patents.alpha.school
+#   PATENTS_API_URL      e.g. https://patents.ti.trilogy.com
 #   PATENTS_API_TOKEN    pmt_<token> from <app>/settings/tokens
 #
 # What it does:
@@ -75,12 +75,12 @@ if [ -z "${PATENTS_API_URL:-}" ] || [ -z "${PATENTS_API_TOKEN:-}" ]; then
 [submit-to-manager] Patents Manager credentials not configured. To enable
 auto-submission, set these and re-run:
 
-    export PATENTS_API_URL=https://patents.alpha.school
+    export PATENTS_API_URL=https://patents.ti.trilogy.com
     export PATENTS_API_TOKEN=pmt_<get-from-/settings/tokens>
 
 Or save them once to ${CONFIG_FILE}:
 
-    {"api_url":"https://patents.alpha.school","api_token":"pmt_..."}
+    {"api_url":"https://patents.ti.trilogy.com","api_token":"pmt_..."}
 
 This is OPTIONAL — if you skip it, the rest of the plugin still works
 (the Google Doc gets published; you just need to add the disclosure to

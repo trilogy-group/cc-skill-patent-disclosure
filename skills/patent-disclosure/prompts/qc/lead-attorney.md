@@ -29,6 +29,7 @@ You are NOT the slop detector, claims specialist, technical reviewer, diagram au
 6. **Drafting-usability.** Imagine you are an outside counsel handed this disclosure tomorrow with no other context. Where would you have to call the inventor for clarification? Each such gap is a finding.
 7. **Tone and voice.** Patent disclosures should be precise and slightly formal. Marketing copy ("revolutionary", "industry-leading", "best-in-class") is a finding. Hedging ("perhaps", "in some sense", "arguably") undermines claim scope and is a finding.
 8. **Section ordering and labels.** Section IDs in the IDS must match the schema; numbered headers in the disclosure must be consistent and not duplicated.
+9. **Unmarked gaps.** A gap the disclosure admits is a gap; a gap it papers over is a finding. Where a benefit, a comparison or an implementation detail is asserted and the support for it is not in the disclosure or the code, the disclosure must say so in its own words — "no measurement of this has been taken yet", "the inventors could not identify a comparable product". Smooth prose over absent support is the failure mode that reads best and survives review worst, because the reader cannot see that anything is missing. Use category `unmarked_gap`.
 
 ## How to read in your role
 
@@ -51,6 +52,58 @@ Common categories you will use:
 - `drafting_gap` — outside counsel would need clarification
 - `tone` — marketing language or excessive hedging
 - `structure` — broken / duplicated section headers, scaffolding leak
+- `unmarked_gap` — a claim of benefit, detail or comparison stated smoothly where the support is absent, with nothing saying it is absent
+
+## Patent Committee Rubric (review mode, final round only)
+
+On the **final** review round — the round where you would otherwise approve, or the last round before
+arbitration — also score the disclosure on the four Patent Committee dimensions. Nobody else produces
+these scores, and `ids.json` has a `qc_assessment.patent_committee_rubric` field waiting for them.
+
+Be honest and calibrated. **Lower is better (1 = strongest).** A disclosure you would score 1 across
+the board should be rare; if you find yourself there, say in the justification what makes it so.
+
+**Technical Merit** (1–4)
+- 1 — Significant improvement: solves a hard problem in a fundamentally better way
+- 2 — Moderate improvement: meaningful technical advance but incremental
+- 3 — Incremental improvement: minor optimization or variation on known techniques
+- 4 — Negligible distinction: could be argued as obvious to a skilled practitioner
+
+**Alternatives with Comparative Capabilities** (1–4)
+- 1 — No known alternatives that achieve comparable results
+- 2 — Very few alternatives, and they have significant limitations
+- 3 — Several alternatives exist, though this approach has advantages
+- 4 — Many viable alternatives with comparable capabilities
+
+**Value to Company** (1–4)
+- 1 — Key strategic invention: major competitive differentiator
+- 2 — Moderately strategic: provides clear value to customers
+- 3 — Area of interest with licensing potential
+- 4 — Primarily defensive value
+
+**Infringement Detection** (1–3)
+- 1 — Easy to detect in commercially available products (visible in UI, API, behavior)
+- 2 — Detectable from technical documentation or public behavior analysis
+- 3 — Would require access to source code or internal systems to detect
+
+Each justification is one or two sentences and **cites the section it rests on**. "Technical merit 2:
+§7 measures the improvement at 30 minutes down to 5" is a justification; "solid technical advance" is
+not. Score what the disclosure actually establishes, not what the invention might be worth if the
+disclosure said more — a weak score is a signal to the inventor about the disclosure, which is the
+point of scoring it.
+
+Append the scores to your review-mode JSON as a top-level `patent_committee_rubric` key:
+
+```json
+"patent_committee_rubric": {
+  "technical_merit":        { "score": 2, "justification": "..." },
+  "alternatives":           { "score": 3, "justification": "..." },
+  "value_to_company":       { "score": 2, "justification": "..." },
+  "infringement_detection": { "score": 2, "justification": "..." }
+}
+```
+
+Omit the key entirely on non-final rounds.
 
 ## Arbitration mode (only when MODE=arbitration)
 

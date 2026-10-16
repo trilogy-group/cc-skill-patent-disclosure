@@ -40,6 +40,47 @@ fi
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
+# mmdc drives headless Chrome through Puppeteer. On Linux CI containers, Docker images running as
+# root, and VMs without user namespaces, Chrome cannot start its sandbox and mmdc dies inside
+# @puppeteer/browsers. The disclosure then fails this gate for a reason that has nothing to do with
+# the diagram, and because the per-block error used to be sent to /dev/null, the only symptom was
+# "blocks fail to render". Every mermaid block of the repo's own good fixture failed this way.
+#
+# So: probe once with a trivial diagram. If plain mmdc works, change nothing - a machine that CAN
+# sandbox keeps sandboxing. Only if the probe fails do we retry with the sandbox off, and only then
+# is the flag used for the real blocks.
+PUPPETEER_CFG=""
+probe_mmdc () {
+    local probe_dir probe_rc
+    probe_dir=$(mktemp -d)
+    printf 'graph TD\n  A[a] --> B[b]\n' > "$probe_dir/probe.mmd"
+    if mmdc -i "$probe_dir/probe.mmd" -o "$probe_dir/probe.svg" --quiet >/dev/null 2>&1; then
+        rm -rf "$probe_dir"; return 0
+    fi
+    printf '{"args":["--no-sandbox","--disable-setuid-sandbox"]}\n' > "$probe_dir/puppeteer.json"
+    if mmdc -i "$probe_dir/probe.mmd" -o "$probe_dir/probe.svg" -p "$probe_dir/puppeteer.json" \
+            --quiet >/dev/null 2>&1; then
+        PUPPETEER_CFG="$probe_dir/puppeteer.json"
+        echo "[mermaid-validate] Chrome cannot sandbox here; rendering with --no-sandbox." >&2
+        return 0
+    fi
+    rm -rf "$probe_dir"
+    echo "[mermaid-validate] mmdc cannot render even a trivial diagram, with or without the" >&2
+    echo "[mermaid-validate] sandbox. This is an environment problem, not a problem with your" >&2
+    echo "[mermaid-validate] diagrams. The error from the attempt follows:" >&2
+    mmdc -i /dev/null -o /dev/null 2>&1 | tail -5 >&2
+    return 1
+}
+probe_mmdc || true
+
+run_mmdc () {
+    if [ -n "$PUPPETEER_CFG" ]; then
+        mmdc -i "$1" -o "$2" -p "$PUPPETEER_CFG" --quiet
+    else
+        mmdc -i "$1" -o "$2" --quiet
+    fi
+}
+
 # Extract every ```mermaid ... ``` block into a separate .mmd file
 awk -v out_dir="$OUT_DIR" '
     /^```mermaid$/ { in_block=1; idx++; out=sprintf("%s/block_%02d.mmd", out_dir, idx); next }
@@ -55,8 +96,11 @@ FAILED=0
 for f in "$OUT_DIR"/block_*.mmd; do
     [ -f "$f" ] || continue
     TOTAL=$((TOTAL + 1))
-    if mmdc -i "$f" -o "${f%.mmd}.svg" --quiet 2>/dev/null; then
+    # The error is KEPT, next to the block it came from. Sending it to /dev/null is why a pure
+    # environment failure looked like six bad diagrams for months.
+    if run_mmdc "$f" "${f%.mmd}.svg" 2>"${f%.mmd}.err"; then
         PASSED=$((PASSED + 1))
+        rm -f "${f%.mmd}.err"
     else
         FAILED=$((FAILED + 1))
         basename "$f" >> "$OUT_DIR/failures.txt"
